@@ -1,0 +1,9 @@
+/build/
+/ios/Flutter/Flutter.podspec
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+*.iml
+.DS_Store
+android/local.properties
