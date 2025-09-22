@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'log_in.dart';
 import 'sign_up.dart';
+import 'home.dart';
 
 
 // Hi Guys this is Michael Im writing a few comments on the pages to keep track what page is which
@@ -46,7 +47,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const HomePage(),
     );
   }
 }
