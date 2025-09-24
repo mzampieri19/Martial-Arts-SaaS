@@ -3,7 +3,6 @@
 // Home page, Search/Classes, Calendar, Profile, (Place holder icons on nav bar, click to empty pages for now) 
 
 import 'package:flutter/material.dart';
-import 'search.dart';
 import 'profile.dart';
 import 'classes.dart';
 import 'calendar.dart';
