@@ -18,6 +18,11 @@ class _ProfilePageState extends State<ProfilePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const <Widget>[
+            CircleAvatar(
+              radius: 48,
+              backgroundColor: Colors.grey,
+              child: Icon(Icons.person, size: 48, color: Colors.white70),
+            ),
             Text('Name: John Doe'),
             Text('Email: john.doe@example.com'),
           ],
