@@ -92,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
     return Container(
       width: 110,
       height: 110,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surfaceLight,
         shape: BoxShape.circle,
       ),
@@ -115,14 +115,14 @@ class _MyHomePageState extends State<MyHomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // placeholder logo and name
+              // logo + name
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.sports_mma, color: AppColors.primary, size: 28),
                   const SizedBox(width: 8),
                   Text(
-                    'PLACEHOLDER GYM NAME',
+                    'GYM CALENDAR',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -133,7 +133,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               const SizedBox(height: 16),
 
-              // PLACEHOLDER IMAGES 
+              // bubbles
               SizedBox(
                 height: 210,
                 child: Stack(
@@ -150,7 +150,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
               // title
               Text(
-                'Welcome to our martial arts gym app',
+                'Track your events and progress!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textDark,
@@ -160,9 +160,9 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
               const SizedBox(height: 8),
 
-              // Subtitle / placeholder copy
+              // subtitle
               Text(
-                'idk placeholder placeholder placeholder ',
+                'idk placeholder placeholder placeholder',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.textSubtle,
@@ -172,42 +172,49 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
 
               const SizedBox(height: 24),
-
-              // register and log in buttons
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _navigateToSignUpPage,
-                  child: const Text(
-                    'Register',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _navigateToLogInPage,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(50),
-                    side: BorderSide(color: Colors.black.withOpacity(0.35), width: 1.2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    foregroundColor: AppColors.textDark,
-                    backgroundColor: Colors.black.withOpacity(0.07),
-                  ),
-                  child: const Text(
-                    'Log In',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
+              // (buttons removed from here)
             ],
           ),
+        ),
+      ),
+
+      // ✅ Fixed bottom buttons
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _navigateToSignUpPage,
+                child: const Text(
+                  'Register',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _navigateToLogInPage,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  side: BorderSide(color: Colors.black.withOpacity(0.35), width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  foregroundColor: AppColors.textDark,
+                  backgroundColor: Colors.black.withOpacity(0.07),
+                ),
+                child: const Text(
+                  'Log In',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
