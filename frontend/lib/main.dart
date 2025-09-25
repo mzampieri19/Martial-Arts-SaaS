@@ -106,20 +106,14 @@ class _MyHomePageState extends State<MyHomePage> {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 24),
-            AppButton(
-              text: 'Log In',
+            ElevatedButton(
               onPressed: _navigateToLogInPage,
-              variant: AppButtonVariant.primary,
-              size: AppButtonSize.medium,
-              fullWidth: false,
+              child: const Text('Log In'),
             ),
             const SizedBox(height: 12),
-            AppButton(
-              text: 'Sign Up',
+            ElevatedButton(
               onPressed: _navigateToSignUpPage,
-              variant: AppButtonVariant.secondary,
-              size: AppButtonSize.medium,
-              fullWidth: false,
+              child: const Text('Sign Up'),
             ),
           ],
         ),
