@@ -36,6 +36,15 @@ class _SignUpPageState extends State<SignUpPage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  const Center(
+                    child: Text(
+                      'Create Your Profile!',
+                        style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        ),
+                    ),
+                  ),
                   // Profile photo placeholder
                   GestureDetector(
                     onTap: () async {
