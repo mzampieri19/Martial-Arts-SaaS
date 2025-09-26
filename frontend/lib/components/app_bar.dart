@@ -5,6 +5,13 @@ import '../constants/app_constants.dart';
 /// Provides a customizable app bar with title, actions, and leading widget.
 /// Can be used throughout the app for consistent app bar design.
 
+class AppColors {
+  static const primaryBlue = Color(0xFFDD886C);
+  static const linkBlue = Color(0xFFC96E6E);
+  static const fieldFill = Color(0xFFF1F3F6);
+  static const background = Color(0xFFFFFDE2);
+}
+
 class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
   final List<Widget>? actions;
@@ -41,7 +48,7 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
             )
           : null,
       centerTitle: centerTitle,
-      backgroundColor: backgroundColor ?? AppConstants.surfaceColor,
+      backgroundColor: backgroundColor ?? AppColors.primaryBlue,
       foregroundColor: foregroundColor ?? AppConstants.textPrimary,
       elevation: elevation ?? 0,
       shadowColor: AppConstants.primaryColor.withOpacity(0.1),
@@ -72,13 +79,15 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onProfileTap;
   final VoidCallback? onNotificationTap;
   final int notificationCount;
+  final Color backgroundColor;
 
   const HomeAppBar({
     super.key,
     this.userProfile,
     this.onProfileTap,
     this.onNotificationTap,
-    this.notificationCount = 0,
+    this.notificationCount = 0, 
+    required this.backgroundColor,
   });
 
   @override
@@ -115,7 +124,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
                   child: Text(
                     notificationCount > 99 ? '99+' : notificationCount.toString(),
                     style: AppConstants.labelXs.copyWith(
-                      color: AppConstants.textOnPrimary,
+                      color: backgroundColor,
                       fontSize: 10,
                     ),
                     textAlign: TextAlign.center,
@@ -132,12 +141,12 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
             onTap: onProfileTap,
             child: CircleAvatar(
               radius: 18,
-              backgroundColor: AppConstants.primaryColor,
+              backgroundColor: AppColors.primaryBlue,
               backgroundImage: userProfile != null ? NetworkImage(userProfile!) : null,
               child: userProfile == null
                   ? Icon(
                       Icons.person,
-                      color: AppConstants.textOnPrimary,
+                      color: AppConstants.cardColor,
                       size: AppConstants.iconMd,
                     )
                   : null,
