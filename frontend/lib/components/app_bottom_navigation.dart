@@ -29,33 +29,29 @@ class _AppBottomNavigationState extends State<AppBottomNavigation>
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(
-        left: AppConstants.spaceLg,
-        right: AppConstants.spaceLg,
-        bottom: AppConstants.spaceLg,
-      ),
+      // No margins - full width and extends to bottom
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          CustomPaint(
-            painter: NavBarPainter(),
-            child: ClipPath(
-              clipper: NavBarClipper(),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: AppConstants.surfaceColor.withOpacity(0.95),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 5),
-                        spreadRadius: 0,
-                      ),
-                    ],
-                  ),
+          ClipPath(
+            clipper: NavBarClipper(),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                height: 90, // Increased height to extend further down
+                decoration: BoxDecoration(
+                  color: AppConstants.surfaceColor.withOpacity(0.95),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 5),
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: 20), // Push content up from bottom
                   child: Row(
                     children: _buildNavItems(),
                   ),
@@ -66,8 +62,8 @@ class _AppBottomNavigationState extends State<AppBottomNavigation>
           // Center floating button
           if (widget.centerButton != null)
             Positioned(
-              top: -15,
-              left: MediaQuery.of(context).size.width / 2 - AppConstants.spaceLg - 30,
+              top: -5, // Adjusted to match new notch position
+              left: MediaQuery.of(context).size.width / 2 - 30,
               child: widget.centerButton!,
             ),
         ],
@@ -181,7 +177,7 @@ class _AppBottomNavigationState extends State<AppBottomNavigation>
 }
 
 /// Custom painter for the navigation bar background with notch
-/// Creates a smooth, rounded background for the navigation bar with a central notch.
+/// Creates a continuous navigation bar across full width with a central circular notch.
 
 class NavBarPainter extends CustomPainter {
   @override
@@ -190,47 +186,23 @@ class NavBarPainter extends CustomPainter {
       ..color = AppConstants.surfaceColor.withOpacity(0.95)
       ..style = PaintingStyle.fill;
 
-    final path = Path();
+    // First, draw the main rectangle (full strip)
+    final mainRect = RRect.fromRectAndCorners(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      topLeft: Radius.circular(AppConstants.radiusXl),
+      topRight: Radius.circular(AppConstants.radiusXl),
+    );
+    canvas.drawRRect(mainRect, paint);
     
-    // Start from bottom left with rounded corner
-    path.moveTo(AppConstants.radiusXl, size.height);
-    path.lineTo(0, size.height - AppConstants.radiusXl);
-    path.quadraticBezierTo(0, size.height, AppConstants.radiusXl, size.height);
+    // Then, cut out the circle by drawing it with BlendMode.clear
+    final centerX = size.width / 2;
+    final centerY = size.height - 25; // Circle center position
+    final radius = 30.0;
     
-    // Left side
-    path.lineTo(size.width / 2 - 50, size.height);
+    final circlePaint = Paint()
+      ..blendMode = BlendMode.clear;
     
-    // Create notch for center button
-    path.quadraticBezierTo(size.width / 2 - 35, size.height, size.width / 2 - 35, size.height - 15);
-    path.quadraticBezierTo(size.width / 2 - 35, size.height - 30, size.width / 2 - 20, size.height - 35);
-    path.lineTo(size.width / 2 + 20, size.height - 35);
-    path.quadraticBezierTo(size.width / 2 + 35, size.height - 30, size.width / 2 + 35, size.height - 15);
-    path.quadraticBezierTo(size.width / 2 + 35, size.height, size.width / 2 + 50, size.height);
-    
-    // Right side
-    path.lineTo(size.width - AppConstants.radiusXl, size.height);
-    
-    // Bottom right corner
-    path.quadraticBezierTo(size.width, size.height, size.width, size.height - AppConstants.radiusXl);
-    
-    // Right edge
-    path.lineTo(size.width, AppConstants.radiusXl);
-    
-    // Top right corner
-    path.quadraticBezierTo(size.width, 0, size.width - AppConstants.radiusXl, 0);
-    
-    // Top edge
-    path.lineTo(AppConstants.radiusXl, 0);
-    
-    // Top left corner
-    path.quadraticBezierTo(0, 0, 0, AppConstants.radiusXl);
-    
-    // Left edge
-    path.lineTo(0, size.height - AppConstants.radiusXl);
-    
-    path.close();
-    
-    canvas.drawPath(path, paint);
+    canvas.drawCircle(Offset(centerX, centerY), radius, circlePaint);
   }
 
   @override
@@ -241,46 +213,31 @@ class NavBarClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path();
+    final centerX = size.width / 2;
+    final radius = 30.0;
     
-    // Start from bottom left with rounded corner
-    path.moveTo(AppConstants.radiusXl, size.height);
-    path.lineTo(0, size.height - AppConstants.radiusXl);
-    path.quadraticBezierTo(0, size.height, AppConstants.radiusXl, size.height);
+    // Create main rectangle (full width strip)
+    path.addRect(Rect.fromLTWH(0, 0, size.width, size.height));
     
-    // Left side
-    path.lineTo(size.width / 2 - 50, size.height);
+    // Add rounded corners at the top only
+    final roundedPath = Path();
+    roundedPath.addRRect(RRect.fromRectAndCorners(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      topLeft: Radius.circular(AppConstants.radiusXl),
+      topRight: Radius.circular(AppConstants.radiusXl),
+    ));
     
-    // Create notch for center button
-    path.quadraticBezierTo(size.width / 2 - 35, size.height, size.width / 2 - 35, size.height - 15);
-    path.quadraticBezierTo(size.width / 2 - 35, size.height - 30, size.width / 2 - 20, size.height - 35);
-    path.lineTo(size.width / 2 + 20, size.height - 35);
-    path.quadraticBezierTo(size.width / 2 + 35, size.height - 30, size.width / 2 + 35, size.height - 15);
-    path.quadraticBezierTo(size.width / 2 + 35, size.height, size.width / 2 + 50, size.height);
+    // Create circular cutout positioned further below the bottom edge
+    final circlePath = Path();
+    circlePath.addOval(Rect.fromCircle(
+      center: Offset(centerX, size.height + 25), // Circle center further below bottom edge
+      radius: radius,
+    ));
     
-    // Right side
-    path.lineTo(size.width - AppConstants.radiusXl, size.height);
+    // Combine: Start with rounded rectangle, then subtract circle
+    final result = Path.combine(PathOperation.difference, roundedPath, circlePath);
     
-    // Bottom right corner
-    path.quadraticBezierTo(size.width, size.height, size.width, size.height - AppConstants.radiusXl);
-    
-    // Right edge
-    path.lineTo(size.width, AppConstants.radiusXl);
-    
-    // Top right corner
-    path.quadraticBezierTo(size.width, 0, size.width - AppConstants.radiusXl, 0);
-    
-    // Top edge
-    path.lineTo(AppConstants.radiusXl, 0);
-    
-    // Top left corner
-    path.quadraticBezierTo(0, 0, 0, AppConstants.radiusXl);
-    
-    // Left edge
-    path.lineTo(0, size.height - AppConstants.radiusXl);
-    
-    path.close();
-    
-    return path;
+    return result;
   }
 
   @override
