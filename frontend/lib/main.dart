@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/components/app_button.dart'; // keep if you use it elsewhere
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'log_in.dart';
 import 'sign_up.dart';
@@ -19,7 +20,19 @@ import 'home.dart';
 // Michael works on home.dart
 // Nancy works on profile.dart
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // TODO: Replace with your Supabase project credentials from app.supabase.com → Project Settings → API
+  const String supabaseUrl = 'https://nopgyqscrjjkyapwcqwf.supabase.co';
+  const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vcGd5cXNjcmpqa3lhcHdjcXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg4MTQwNDAsImV4cCI6MjA3NDM5MDA0MH0.uBoO5pTD7p4fumInzsfWQYt4LlcYuABFMWeA1EHvaLE';
+
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+    // authFlowType: AuthFlowType.pkce, // default; keep if you add magic links/OAuth later
+  );
+
   runApp(const MyApp());
 }
 
