@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:supabase_quickstart/main.dart';
 
 class Avatar extends StatefulWidget {
   const Avatar({
@@ -61,6 +60,7 @@ class _AvatarState extends State<Avatar> {
     setState(() => _isLoading = true);
 
     try {
+      final supabase = Supabase.instance.client;
       final bytes = await imageFile.readAsBytes();
       final fileExt = imageFile.path.split('.').last;
       final fileName = '${DateTime.now().toIso8601String()}.$fileExt';
@@ -76,11 +76,15 @@ class _AvatarState extends State<Avatar> {
       widget.onUpload(imageUrlResponse);
     } on StorageException catch (error) {
       if (mounted) {
-        context.showSnackBar(error.message, isError: true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
       }
     } catch (error) {
       if (mounted) {
-        context.showSnackBar('Unexpected error occurred', isError: true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unexpected error occurred')),
+        );
       }
     }
 
