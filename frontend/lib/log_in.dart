@@ -6,11 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppColors {
   static const primaryBlue = Color(0xFFDD886C);
-
   static const linkBlue = Color(0xFFC96E6E);
-
   static const fieldFill = Color(0xFFF1F3F6);
-
   static const background = Color(0xFFFFFDE2);
 }
 
@@ -22,30 +19,11 @@ class LogInPage extends StatefulWidget {
 }
 
 class _LogInPageState extends State<LogInPage> {
-  bool _obscure = true;
+  bool _obscure = true; // password visibility toggle
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _navigateToHomePage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
-    );
-  }
-
-  void _navigateToCoachHomePage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CoachHomePage()),
-    );
-  }
-
-  void _navigateToOwnerHomePage() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const OwnerHomePage()),
-    );
-  }
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   @override
   void dispose() {
@@ -54,6 +32,7 @@ class _LogInPageState extends State<LogInPage> {
     super.dispose();
   }
 
+  // input box design
   InputDecoration _input(String hint, {Widget? suffix}) {
     return InputDecoration(
       hintText: hint,
@@ -66,6 +45,80 @@ class _LogInPageState extends State<LogInPage> {
       ),
       suffixIcon: suffix,
     );
+  }
+
+  // handles user login and navigation based on role
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill out all fields to log in')),
+      );
+      return;
+    }
+
+    try {
+      // sign in
+      final AuthResponse res = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = res.user;
+      if (user == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login failed. Please try again.')),
+        );
+        return;
+      }
+
+      // fetch role from profiles table
+      final profile = await _supabase
+          .from('profiles')
+          .select('Role') 
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final String userRole = (profile?['Role'] as String?) ?? 'STUDENT'; // default to student if no role
+
+      if (!mounted) return; // safety check -> widget still in tree (still open)
+
+      // navigate based on role
+      switch (userRole) {
+        case 'COACH':
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const CoachHomePage()),
+          );
+          break;
+        case 'OWNER':
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const OwnerHomePage()),
+          );
+          break;
+        case 'STUDENT':
+        default:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+          break;
+      }
+    } on AuthException catch (e) {
+      if (!mounted) return; 
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login error: ${e.message}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unexpected error: $e')),
+      );
+    }
   }
 
   @override
@@ -83,7 +136,6 @@ class _LogInPageState extends State<LogInPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // title & subtitle
               const SizedBox(height: 8),
               const Center(
                 child: Text(
@@ -95,7 +147,7 @@ class _LogInPageState extends State<LogInPage> {
                 ),
               ),
               const SizedBox(height: 6),
-              Center(
+              const Center(
                 child: Text(
                   "We're so excited to see you again!",
                   style: TextStyle(
@@ -116,7 +168,6 @@ class _LogInPageState extends State<LogInPage> {
               ),
               const SizedBox(height: 12),
 
-              // email field
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -124,7 +175,6 @@ class _LogInPageState extends State<LogInPage> {
               ),
               const SizedBox(height: 14),
 
-              // password field
               TextField(
                 controller: _passwordController,
                 obscureText: _obscure,
@@ -135,31 +185,11 @@ class _LogInPageState extends State<LogInPage> {
                     icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                   ),
                 ),
+                onSubmitted: (_) => _handleLogin(),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
 
-              // forgot password link
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    foregroundColor: AppColors.linkBlue,
-                  ),
-                  onPressed: () {
-                    // future - navigate to forgot password page
-                  },
-                  child: const Text(
-                    'Forgot your password?',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // log in button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -171,48 +201,7 @@ class _LogInPageState extends State<LogInPage> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    final email = _emailController.text.trim();
-                    final password = _passwordController.text.trim();
-
-                    if (email.isEmpty || password.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please fill out all fields to log in')),
-                      );
-                      return;
-                    }
-
-                    final supabase = Supabase.instance.client;
-
-                    try {
-                      final res = await supabase.auth.signInWithPassword(
-                        email: email,
-                        password: password,
-                      );
-
-                      if (res.user == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Log in failed. Please try again.')),
-                        );
-                        return;
-                      } else {
-                        final userRole = "member"; // placeholder
-                        if (userRole == 'member') {
-                          _navigateToHomePage();
-                        } else if (userRole == 'coach') {
-                          _navigateToCoachHomePage();
-                        } else {
-                          _navigateToOwnerHomePage();
-                        }
-
-                      }
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: ${e.toString()}')),
-                      );
-                      return;
-                    }
-                  },
+                  onPressed: _handleLogin,
                   child: const Text(
                     'Log In',
                     style: TextStyle(
