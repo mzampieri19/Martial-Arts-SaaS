@@ -3,9 +3,6 @@ import 'package:frontend/home.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});

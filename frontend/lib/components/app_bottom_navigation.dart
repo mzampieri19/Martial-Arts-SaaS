@@ -385,7 +385,7 @@ class MartialArtsBottomNavigation extends StatelessWidget {
         AppBottomNavItem(
           icon: Icons.home_outlined,
           activeIcon: Icons.home_rounded,
-          label: 'Home',
+          label: 'Hub',
         ),
         AppBottomNavItem(
           icon: Icons.sports_martial_arts_outlined,

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/coach_home.dart';
 import 'package:frontend/home.dart';
+import 'package:frontend/owner_home.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppColors {
   static const primaryBlue = Color(0xFFDD886C);
@@ -20,12 +23,35 @@ class LogInPage extends StatefulWidget {
 
 class _LogInPageState extends State<LogInPage> {
   bool _obscure = true;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   void _navigateToHomePage() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const HomePage()),
     );
+  }
+
+  void _navigateToCoachHomePage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CoachHomePage()),
+    );
+  }
+
+  void _navigateToOwnerHomePage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const OwnerHomePage()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   InputDecoration _input(String hint, {Widget? suffix}) {
@@ -90,15 +116,17 @@ class _LogInPageState extends State<LogInPage> {
               ),
               const SizedBox(height: 12),
 
-              // email/phone field
+              // email field
               TextField(
+                controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: _input('Email or Phone Number'),
+                decoration: _input('Email'),
               ),
               const SizedBox(height: 14),
 
               // password field
               TextField(
+                controller: _passwordController,
                 obscureText: _obscure,
                 decoration: _input(
                   'Password',
@@ -143,7 +171,48 @@ class _LogInPageState extends State<LogInPage> {
                     ),
                     elevation: 0,
                   ),
-                  onPressed: _navigateToHomePage,
+                  onPressed: () async {
+                    final email = _emailController.text.trim();
+                    final password = _passwordController.text.trim();
+
+                    if (email.isEmpty || password.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please fill out all fields to log in')),
+                      );
+                      return;
+                    }
+
+                    final supabase = Supabase.instance.client;
+
+                    try {
+                      final res = await supabase.auth.signInWithPassword(
+                        email: email,
+                        password: password,
+                      );
+
+                      if (res.user == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Log in failed. Please try again.')),
+                        );
+                        return;
+                      } else {
+                        final userRole = "member"; // placeholder
+                        if (userRole == 'member') {
+                          _navigateToHomePage();
+                        } else if (userRole == 'coach') {
+                          _navigateToCoachHomePage();
+                        } else {
+                          _navigateToOwnerHomePage();
+                        }
+
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: ${e.toString()}')),
+                      );
+                      return;
+                    }
+                  },
                   child: const Text(
                     'Log In',
                     style: TextStyle(

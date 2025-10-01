@@ -327,7 +327,7 @@ class HomeContentPage extends StatelessWidget {
         width: 320,
         child: ElevatedButton(
           onPressed: () {
-            // Navigate to sign-up page
+            // Navigate to track progress page
           },
           child: const Text('Track Progress'),
         ),
