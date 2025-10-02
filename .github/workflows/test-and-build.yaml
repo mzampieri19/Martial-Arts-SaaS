@@ -5,11 +5,11 @@ name: Test & Build
 on:
   pull_request:
     branches:
-      - master
+      - main
       - dev
   push:
     branches:
-      - master
+      - main
       - dev
 
 # 3.
