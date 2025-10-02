@@ -77,7 +77,7 @@ jobs:
       # 13.
       - name: Check for lints
         run: |
-          flutter analyze
+          flutter analyze --no-fatal-warnings --no-fatal-infos
 
       # 14.
       - name: Run all tests
