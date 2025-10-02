@@ -17,6 +17,10 @@ jobs:
   main:
     runs-on: macos-latest
 
+    defaults:
+      run:
+        working-directory: frontend
+
     # 4.
     steps:
 
