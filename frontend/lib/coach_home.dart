@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/create_classes.dart';
 import 'profile.dart';
 import 'classes.dart';
 import 'calendar.dart';
@@ -199,7 +200,7 @@ class CoachHomeContentPage extends StatelessWidget {
             SizedBox(height: AppConstants.spaceMd),
             _buildOverviewSection(),
             SizedBox(height: AppConstants.spaceXl),
-            _buildCreateClassSection(),
+            _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceXl),
             _buildDashboardSection(),
           ],
@@ -237,7 +238,7 @@ class CoachHomeContentPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCreateClassSection() {
+  Widget _buildCreateClassSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -248,7 +249,11 @@ class CoachHomeContentPage extends StatelessWidget {
         SizedBox(height: AppConstants.spaceMd),
         ElevatedButton(
           onPressed: () {
-            // Navigate to create class page
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => CreateClassesPage(),
+              ),
+            );
           },
           child: Text('Make a Class'),
         ),
