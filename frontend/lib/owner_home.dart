@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/create_classes.dart';
 import 'profile.dart';
 import 'classes.dart';
 import 'calendar.dart';
@@ -197,6 +198,8 @@ class OwnerHomeContentPage extends StatelessWidget {
               style: AppConstants.headingLg,
             ),
             SizedBox(height: AppConstants.spaceXl),
+            _buildCreateClassSection(context),
+            SizedBox(height: AppConstants.spaceXl),
             _buildManageBusinessSection(),
             SizedBox(height: AppConstants.spaceXl),
             _buildViewMembersSection(),
@@ -287,6 +290,29 @@ class OwnerHomeContentPage extends StatelessWidget {
               style: AppConstants.labelMd,
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCreateClassSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Create a New Class',
+          style: AppConstants.headingMd,
+        ),
+        SizedBox(height: AppConstants.spaceMd),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => CreateClassesPage(),
+              ),
+            );
+          },
+          child: Text('Make a Class'),
         ),
       ],
     );
