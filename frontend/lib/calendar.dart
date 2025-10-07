@@ -33,23 +33,44 @@ class _CalendarPageState extends State<CalendarPage> {
       return [];
     }
 
-    final String userId = user.id;
+    print('Debug - User ID: ${user.id}');
+    print('Debug - User ID type: ${user.id.runtimeType}');
 
-    final response = await supabase
-        .from('student_classes')
-        .select('classes(id, class_name, date, time)')
-        .eq('profile_id', userId);
+    try {
+      // First, let's see ALL records in the table (debug)
+      final allRecords = await supabase
+          .from('student_classes')
+          .select('*');
+      print('Debug - ALL records in student_classes: $allRecords');
+      
+      // Test with a simple query first
+      final testResponse = await supabase
+          .from('student_classes')
+          .select('*')
+          .eq('profile_id', user.id);
+      
+      print('Debug - Raw response for user ${user.id}: $testResponse');
+      
+      if (testResponse.isEmpty) {
+        print('📭 No registered classes found for ${user.id}');
+        return [];
+      }
 
-    if (response.isEmpty) {
-      print('📭 No registered classes found for $userId');
+      // Then do the join query
+      final response = await supabase
+          .from('student_classes')
+          .select('classes(id, class_name, date, time)')
+          .eq('profile_id', user.id);
+
+      return List<Map<String, dynamic>>.from(
+        (response as List)
+            .map((row) => row['classes'] as Map<String, dynamic>)
+            .toList(),
+      );
+    } catch (e) {
+      print('Error in fetchRegisteredClasses: $e');
       return [];
     }
-
-    return List<Map<String, dynamic>>.from(
-      (response as List)
-          .map((row) => row['classes'] as Map<String, dynamic>)
-          .toList(),
-    );
   }
 
   Future<void> registerForClass(int classId) async {
