@@ -1,4 +1,4 @@
-// A screen that alows coache and owners create classes and sends it to the database
+// A screen that alows coaches and owners create classes and sends it to the database
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
