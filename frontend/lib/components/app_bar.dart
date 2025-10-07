@@ -52,18 +52,7 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: foregroundColor ?? AppConstants.textPrimary,
       elevation: elevation ?? 0,
       shadowColor: AppConstants.primaryColor.withOpacity(0.1),
-      leading: leading ??
-          (showBackButton && Navigator.of(context).canPop()
-              ? IconButton(
-                  icon: Icon(
-                    Icons.arrow_back_ios,
-                    size: AppConstants.iconMd,
-                  ),
-                  onPressed: onBackPressed ?? () => Navigator.of(context).pop(),
-                )
-              : null),
-      actions: actions,
-      systemOverlayStyle: Theme.of(context).appBarTheme.systemOverlayStyle,
+      automaticallyImplyLeading: false,
     );
   }
 
