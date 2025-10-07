@@ -78,6 +78,7 @@ class ProfilePage extends StatelessWidget {
           appBar: AppBar(
             backgroundColor: Colors.white,
             title: Text(appBarTitle!),
+            automaticallyImplyLeading: false,
           ),
           body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 20),
