@@ -15,8 +15,7 @@ class _AnnouncementsPageState extends State<AnnouncementsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const <Widget>[
-            Text('Class 1: Karate'),
-            Text('Class 2: Judo'),
+            Text('ANNOUNCEMENTS'),
           ],
         ),
       ),

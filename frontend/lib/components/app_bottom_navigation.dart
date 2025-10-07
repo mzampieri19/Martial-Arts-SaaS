@@ -390,7 +390,7 @@ class MartialArtsBottomNavigation extends StatelessWidget {
         AppBottomNavItem(
           icon: Icons.sports_martial_arts_outlined,
           activeIcon: Icons.sports_martial_arts_rounded,
-          label: 'Classes',
+          label: 'Announcements',
         ),
         AppBottomNavItem(
           icon: Icons.calendar_today_outlined,

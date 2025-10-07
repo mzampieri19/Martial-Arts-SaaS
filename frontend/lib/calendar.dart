@@ -29,7 +29,8 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
       Widget build(BuildContext context) {
         return Scaffold(
-          appBar: AppBar(title: const Text('Classes')),
+          appBar: AppBar(title: const Text('Classes'),
+          automaticallyImplyLeading: false,),
           body: FutureBuilder<List<Map<String, dynamic>>>(
             future: _itemsFuture,
             builder: (context, snapshot) {
