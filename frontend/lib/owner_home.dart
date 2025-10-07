@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
 import 'profile.dart';
-import 'classes.dart';
+import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
@@ -27,7 +27,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
 
   final List<Widget> _pages = [
     const OwnerHomeContentPage(), // Home content
-    const ClassesPage(),
+    const AnnouncementsPage(),
     const CalendarPage(),
     const ProfilePage(),
   ];

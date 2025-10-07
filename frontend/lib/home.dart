@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile.dart';
-import 'classes.dart';
+import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
 
   final List<Widget> _pages = [
     const HomeContentPage(), // Home content
-    const ClassesPage(),
+    const AnnouncementsPage(),
     const CalendarPage(),
     const ProfilePage(),
   ];
@@ -46,7 +46,7 @@ class _HomePageState extends State<HomePage> {
         case 0:
           return 'Martial Arts Hub';
         case 1:
-          return 'Classes';
+          return 'Announcements';
         case 2:
           return 'Calendar';
         case 3:
