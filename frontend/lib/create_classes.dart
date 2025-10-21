@@ -112,11 +112,24 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
       // Create class_goal_links entry if a goal was selected
       if (_selectedGoalId != null && newClassId != null) {
         try {
-          await _supabase.from('class_goal_links').insert({
+          // Ensure goal id is the proper numeric type when possible
+          final parsedGoalId = int.tryParse(_selectedGoalId.toString()) ?? _selectedGoalId;
+          final linkResp = await _supabase.from('class_goal_links').insert({
             'class_id': newClassId,
-            'goal_id': _selectedGoalId,
-          });
-        } catch (_) {}
+            'goal_id': parsedGoalId,
+          }).select();
+
+          final inserted = List<Map<String, dynamic>>.from(linkResp as List? ?? []);
+          if (inserted.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Class created but linking goal failed (no rows returned)')),
+            );
+          }
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Class created but failed to link goal: $e')),
+          );
+        }
       }
 
       ScaffoldMessenger.of(context).showSnackBar(

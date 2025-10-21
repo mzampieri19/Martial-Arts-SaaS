@@ -7,4 +7,4 @@
 *.iml
 .DS_Store
 android/local.properties
-sql
+sql/

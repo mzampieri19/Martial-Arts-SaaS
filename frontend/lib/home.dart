@@ -331,7 +331,7 @@ class HomeContentPage extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const TrackProgressPage(),
+                builder: (context) => TrackingProgressPage(),
               ),
             );
           },

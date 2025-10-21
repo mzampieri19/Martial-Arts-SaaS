@@ -1,633 +1,338 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
-import 'package:frontend/main.dart' show AppColors;
 
-class TrackProgressPage extends StatefulWidget {
-  const TrackProgressPage({super.key});
-
+class TrackingProgressPage extends StatefulWidget {
   @override
-  State<TrackProgressPage> createState() => _TrackProgressPageState();
+  _TrackingProgressPageState createState() => _TrackingProgressPageState();
 }
 
-class _TrackProgressPageState extends State<TrackProgressPage> {
-  final SupabaseClient _supabase = Supabase.instance.client;
+class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
-  bool _loading = true;
-  String? _error;
+  // This page loads the user's registered classes and the goals associated with each of those classes.
 
-  /// Results to display
-  List<ClassProgress> _items = [];
+  // Once loaded, display each class and goal and give the user the ability to check the completed classes.
 
-  @override
+  // Once a class is checked as completed, update the progress toward the associated goals.
+
+  // Show a progress bar for each goal indicating how many classes have been completed toward that goal.
+
   void initState() {
     super.initState();
-    _loadProgress();
+    _loadGoalsOnInit();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchGoalsForClass(dynamic classId, int attendedForClass) async {
-    // New model: goals are global and classes link to goals via class_goal_links.
-    // 1) find goals linked to this class
-    final linkedResp = await _supabase
-        .from('class_goal_links')
-        .select('goal_id')
-        .eq('class_id', classId);
-    final linked = List<Map<String, dynamic>>.from(linkedResp as List? ?? []);
-    if (linked.isEmpty) return [];
-
-    final goalIds = linked.map((l) => l['goal_id']).toList();
-
-    // 2) fetch goal definitions
-    final goalsResp = await _supabase
-        .from('goals')
-        .select('id, key, title, description, required_sessions')
-        .filter('id', 'in', '(${goalIds.join(',')})');
-    final goals = List<Map<String, dynamic>>.from(goalsResp as List? ?? []);
-    if (goals.isEmpty) return [];
-
-    final user = _supabase.auth.currentUser;
-    Map<dynamic, Map<String, dynamic>> progressMap = {};
-    if (user != null) {
-      final progResp = await _supabase
-        .from('user_goal_progress')
-        .select('goal_id, completed_at')
-        .eq('user_id', user.id)
-        .filter('goal_id', 'in', '(${goalIds.join(',')})');
-      final progList = List<Map<String, dynamic>>.from(progResp as List? ?? []);
-      for (final p in progList) progressMap[p['goal_id']] = p;
-    }
-
-    // For each goal, find all classes linked to that goal, then count attendance for the user across those classes
-    final List<Map<String, dynamic>> out = [];
-    for (final g in goals) {
-      final gid = g['id'];
-      // fetch linked class ids
-      final classesResp = await _supabase
-          .from('class_goal_links')
-          .select('class_id')
-          .eq('goal_id', gid);
-      final classList = List<Map<String, dynamic>>.from(classesResp as List? ?? []);
-      final classIds = classList.map((c) => c['class_id']).toList();
-
-      // count attendance across those classes for this user
-      int attendedCount = 0;
-      List<Map<String, dynamic>> attendanceRows = [];
-      if (user != null && classIds.isNotEmpty) {
-        final attResp = await _supabase
-            .from('user_class_attendance')
-            .select('attended_at, duration_minutes, notes, class_id, classes(class_name)')
-            .eq('user_id', user.id)
-            .filter('class_id', 'in', '(${classIds.join(',')})')
-            .order('attended_at', ascending: false);
-        final rows = List<Map<String, dynamic>>.from(attResp as List? ?? []);
-        attendedCount = rows.length;
-        for (final r in rows) {
-          attendanceRows.add({
-            'attended_at': r['attended_at'] != null ? DateTime.tryParse(r['attended_at'].toString())?.toLocal() : null,
-            'class_name': (r['classes'] != null && (r['classes'] is Map)) ? r['classes']['class_name'] : null,
-            'duration_minutes': r['duration_minutes'],
-            'class_id': r['class_id'],
-            'notes': r['notes'],
-          });
-        }
-      }
-
-      final p = progressMap[gid];
-      g['completed'] = p != null;
-      g['completed_at'] = p != null ? p['completed_at'] : null;
-      g['_attended_for_goal'] = attendedCount;
-      g['_attendance_rows'] = attendanceRows;
-      out.add(g);
-    }
-
-    return out;
-  }
-
-  /// Fetch attendance rows for a given class and user, optionally limited to rows
-  /// that contributed to goals. Returns list of attendance rows with date, class_name, duration.
-  Future<List<Map<String, dynamic>>> _fetchAttendanceRowsForClass(dynamic classId, {int? limit}) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return [];
-
-    // Join attendance with classes to get class name and other metadata
-  // Note: select attendance rows joined with classes to get class name
-  final rowsRaw = await _supabase
-        .from('user_class_attendance')
-        .select('attended_at, duration_minutes, notes, classes(class_name)')
-        .eq('user_id', user.id)
-        .eq('class_id', classId)
-        .order('attended_at', ascending: false);
-
-    final rows = List<Map<String, dynamic>>.from(rowsRaw as List? ?? []);
-  final out = <Map<String, dynamic>>[];
-    for (final r in rows) {
-      final attendedAt = r['attended_at'] != null
-          ? DateTime.tryParse(r['attended_at'].toString())?.toLocal()
-          : null;
-      final className = (r['classes'] != null && (r['classes'] is Map)) ? r['classes']['class_name'] : null;
-      out.add({
-        'attended_at': attendedAt,
-        'class_name': className ?? 'Class',
-        'duration_minutes': r['duration_minutes'],
-        'notes': r['notes'],
-      });
-      if (limit != null && out.length >= limit) break;
-    }
-
-    return out;
-  }
-
-  Future<void> _toggleGoalCompletion(dynamic goalId, dynamic classId, bool complete) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    if (complete) {
-      try {
-        await _supabase.from('user_goal_progress').insert({
-          'user_id': user.id,
-          'goal_id': goalId,
-        });
-      } catch (_) {
-        // ignore duplicate
-      }
-    } else {
-      await _supabase
-          .from('user_goal_progress')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('goal_id', goalId);
-    }
-  }
-
-  Future<void> _loadProgress() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    final user = _supabase.auth.currentUser;
-    if (user == null) {
-      setState(() {
-        _error = 'Please sign in to see your progress.';
-        _loading = false;
-      });
-      return;
-    }
-
+  // Helper to load classes and goals during init
+  Future<void> _loadGoalsOnInit() async {
     try {
-      // Call the RPC to get aggregated stats for this user
-      final rpcResponse = await _supabase.rpc('get_user_class_stats', params: {
-        'p_user_id': user.id,
-      });
-
-      final rows = List<Map<String, dynamic>>.from(rpcResponse as List? ?? []);
-
-      if (rows.isEmpty) {
-        setState(() {
-          _items = [];
-          _loading = false;
-        });
-        return;
-      }
-
-      // Get class metadata
-      final classIds = rows.map((r) => r['class_id']).toList();
-      final classesResponse = await _supabase
-          .from('classes')
-          .select('id, class_name, difficulty, type_of_class, target_sessions')
-          .filter('id', 'in', '(${classIds.join(',')})');
-
-      final classes = List<Map<String, dynamic>>.from(classesResponse as List? ?? []);
-      final Map<dynamic, Map<String, dynamic>> classMap = {for (final c in classes) c['id']: c};
-
-      final List<ClassProgress> items = [];
-      for (final r in rows) {
-        final cid = r['class_id'];
-        final cls = classMap[cid];
-        final className = cls != null ? (cls['class_name']?.toString() ?? 'Unnamed class') : 'Class $cid';
-
-        int targetSessions = 8;
-        if (cls != null) {
-          final ts = cls['target_sessions'];
-          if (ts != null) {
-            try { targetSessions = (ts as num).toInt(); } catch (_) { targetSessions = int.tryParse(ts.toString()) ?? targetSessions; }
-          } else {
-            final diff = cls['difficulty'];
-            int difficulty = 0;
-            if (diff != null) {
-              try { difficulty = (diff as num).toInt(); } catch (_) { difficulty = int.tryParse(diff.toString()) ?? 0; }
-            }
-            targetSessions = 8 + (difficulty * 4);
-          }
-        }
-
-        final attended = (r['attended_count'] as num).toInt();
-        final progress = targetSessions > 0 ? (attended / targetSessions).clamp(0.0, 1.0) : 0.0;
-
-        items.add(ClassProgress(
-          classId: cid,
-          className: className,
-          attendedCount: attended,
-          targetSessions: targetSessions,
-          progressPercent: progress,
-          weeksActive: (r['weeks_active'] as num?)?.toInt() ?? 0,
-          avgPerWeek: (r['avg_per_week'] as num?)?.toDouble() ?? 0.0,
-          last30DaysCount: (r['last_30_days_count'] as num?)?.toInt() ?? 0,
-          firstAttendedAt: r['first_attended_at'] != null ? DateTime.tryParse(r['first_attended_at'].toString()) : null,
-          lastAttendedAt: r['last_attended_at'] != null ? DateTime.tryParse(r['last_attended_at'].toString()) : null,
-        ));
-      }
-
-      items.sort((a, b) => a.className.compareTo(b.className));
-      if (!mounted) return;
-      setState(() { _items = items; _loading = false; });
+      final classes = await _getRegisteredClasses();
+      await _getGoalsPerClass(classes);
     } catch (e) {
-      if (!mounted) return;
-      setState(() { _error = 'Failed to load progress: $e'; _loading = false; });
+      // ignore for now
     }
-  }
-
-  Future<void> _showClassDetails(ClassProgress it) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    final attResponse = await _supabase
-        .from('user_class_attendance')
-        .select('attended_at, session_type, duration_minutes, notes')
-        .eq('user_id', user.id)
-        .eq('class_id', it.classId)
-        .order('attended_at', ascending: false);
-
-    final rows = List<Map<String, dynamic>>.from(attResponse as List? ?? []);
-
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(it.className, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                if (rows.isEmpty) const Text('No attendance records.'),
-                if (rows.isNotEmpty)
-                  SizedBox(
-                    height: 300,
-                    child: ListView.separated(
-                      itemCount: rows.length,
-                      separatorBuilder: (_, __) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final r = rows[index];
-                        final attendedAt = r['attended_at'] != null
-                            ? DateTime.tryParse(r['attended_at'].toString())?.toLocal()
-                            : null;
-                        final sessionType = r['session_type']?.toString() ?? '—';
-                        final notes = r['notes']?.toString() ?? '';
-
-                        final dateStr = attendedAt != null
-                            ? DateFormat.yMMMd().add_jm().format(attendedAt)
-                            : 'Unknown date';
-                        final durationStr = (r['duration_minutes'] != null && r['duration_minutes'].toString().isNotEmpty)
-                            ? '${r['duration_minutes']} min'
-                            : '—';
-
-                        return ListTile(
-                          title: Text(dateStr),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Type: $sessionType • Duration: $durationStr'),
-                              if (notes.isNotEmpty) Text('Notes: $notes'),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
-                  ),
-                )
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  double _overallProgress() {
-    if (_items.isEmpty) return 0.0;
-    // Simple unweighted average of each class progress
-    return _items.map((i) => i.progressPercent).reduce((a, b) => a + b) /
-        _items.length;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: AppColors.textDark,
-        title: Text(
-          'Track Progress',
-          style: TextStyle(
-            color: AppColors.textDark,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadProgress,
-            color: AppColors.primary,
-          ),
-        ],
+        title: Text('Tracking Progress'),
       ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(child: Text(_error!))
-                : _items.isEmpty
-                    ? const Center(child: Text('No attendance records found.'))
-                    : Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          children: [
-                            Card(
-                              color: AppColors.surfaceLight,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Overall Progress',
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.textDark),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: LinearProgressIndicator(
-                                        value: _overallProgress(),
-                                        minHeight: 12,
-                                        backgroundColor: Colors.white,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                        '${(_overallProgress() * 100).toStringAsFixed(0)}% complete • ${_items.length} class(es)',
-                                        style: TextStyle(
-                                          color: AppColors.textSubtle,
-                                        )),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: ListView.separated(
-                                itemCount: _items.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                                itemBuilder: (context, index) {
-                                  final it = _items[index];
-                                  return InkWell(
-                                    onTap: () => _showClassDetails(it),
-                                    child: Card(
-                                      color: Colors.white,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    it.className,
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: AppColors.textDark,
-                                                    ),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Text(
-                                                    '${(it.progressPercent * 100).toStringAsFixed(0)}%',
-                                                    style: TextStyle(
-                                                      color: AppColors.textDark,
-                                                    )),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 8),
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              child: LinearProgressIndicator(
-                                                value: it.progressPercent,
-                                                minHeight: 8,
-                                                backgroundColor:
-                                                    Colors.grey.shade200,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                                'Attended: ${it.attendedCount} / ${it.targetSessions} sessions',
-                                                style: TextStyle(
-                                                  color: AppColors.textSubtle,
-                                                )),
-                                            const SizedBox(height: 8),
-                                            FutureBuilder<List<Map<String, dynamic>>>(
-                                              future: Future.wait([
-                                                _fetchGoalsForClass(it.classId, it.attendedCount),
-                                                _fetchAttendanceRowsForClass(it.classId),
-                                              ]).then((parts) {
-                                                final dynamic p0 = parts[0];
-                                                final dynamic p1 = parts[1];
-                                                final goals = List<Map<String, dynamic>>.from(p0 as List? ?? []);
-                                                final attendance = List<Map<String, dynamic>>.from(p1 as List? ?? []);
-                                                // Attach attendance rows to each goal so UI can show which classes contributed
-                                                for (final g in goals) {
-                                                  // For now we attach all attendance rows for the class; later you can refine to map specific rows to goals
-                                                  g['_attendance_rows'] = attendance;
-                                                  // Compute attended-for-goal as number of attendance rows for this class
-                                                  g['_attended_for_goal'] = attendance.length;
-                                                }
+      body: Center(
+        // Show the registered classes and their associated goals here
+        child: FutureBuilder(
+          future: _loadClassesWithGoals(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgressIndicator();
+            } else if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            } else if (!snapshot.hasData || (snapshot.data as List).isEmpty) {
+              return Text('No registered classes found.');
+            } else {
+              final raw = snapshot.data;
+              final classes = (raw is List)
+                  ? List<Map<String, dynamic>>.from(raw as List)
+                  : <Map<String, dynamic>>[];
 
-                                                // Client-side dedupe fallback: if DB still has duplicate titles, collapse them
-                                                final Map<String, Map<String, dynamic>> unique = {};
-                                                String _normalizeKey(Object? o) {
-                                                  final s = (o ?? '').toString();
-                                                  // collapse whitespace and lower-case
-                                                  final t = s.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
-                                                  return t;
-                                                }
+              return ListView.builder(
+                itemCount: classes.length,
+                itemBuilder: (context, index) {
+                  final classInfo = classes[index];
+                  final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
+                  final goals = classInfo['goals'] as List? ?? [];
 
-                                                for (final g in goals) {
-                                                  final key = _normalizeKey(g['title']);
-                                                  if (key.isEmpty) continue;
-                                                  if (!unique.containsKey(key)) {
-                                                    unique[key] = Map<String, dynamic>.from(g);
-                                                  } else {
-                                                    final ex = unique[key]!;
-                                                    // prefer completed state
-                                                    ex['completed'] = (ex['completed'] == true) || (g['completed'] == true);
-                                                    ex['completed_at'] = ex['completed_at'] ?? g['completed_at'];
-                                                    // merge attendance rows (keep unique by attended_at)
-                                                    final exAtt = List<Map<String, dynamic>>.from(ex['_attendance_rows'] as List? ?? []);
-                                                    final gAtt = List<Map<String, dynamic>>.from(g['_attendance_rows'] as List? ?? []);
-                                                    final merged = {...{for (var a in exAtt) (a['attended_at']?.toString() ?? a.hashCode.toString()): a}};
-                                                    for (final a in gAtt) {
-                                                      merged[a['attended_at']?.toString() ?? a.hashCode.toString()] = a;
-                                                    }
-                                                    ex['_attendance_rows'] = merged.values.toList();
-                                                    ex['_attended_for_goal'] = (ex['_attendance_rows'] as List).length;
-                                                    unique[key] = ex;
-                                                  }
-                                                }
+                  return ExpansionTile(
+                    title: Text(className),
+                    subtitle: Text('Class ID: ${classInfo['id']}'),
+                    children: goals.isNotEmpty
+                        ? goals.map<Widget>((g) {
+                            final goalId = g['id'];
+                            final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
+                            return FutureBuilder<Map<String, dynamic>>(
+                              future: _fetchGoalMeta(goalId, g['required_sessions'] ?? 0),
+                              builder: (context, snap) {
+                                final loading = snap.connectionState == ConnectionState.waiting;
+                                final meta = snap.data ?? {};
+                                final completed = meta['completed'] == true;
+                                final attended = meta['attended'] ?? 0;
+                                final required = (g['required_sessions'] ?? 0) as int;
+                                double progress = 0.0;
+                                if (required > 0) {
+                                  progress = (attended / required).clamp(0.0, 1.0);
+                                }
 
-                                                return unique.values.toList();
-                                              }),
-                                              builder: (context, snap) {
-                                                if (snap.connectionState == ConnectionState.waiting) return const SizedBox();
-                                                final goals = snap.data ?? [];
-                                                if (goals.isEmpty) return const SizedBox();
-                                                  return Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: goals.map((g) {
-                                                      final goalId = g['id'];
-                                                      final title = g['title'] ?? 'Goal';
-                            final required = (g['required_sessions'] as num?)?.toInt() ?? 0;
-                            final completed = g['completed'] == true;
-                            final attendedForGoal = (g['_attended_for_goal'] as int? ?? (g['_attended_for_class'] as int? ?? 0));
-                            final goalProgress = required > 0
-                              ? (attendedForGoal / required).clamp(0.0, 1.0)
-                              : 0.0;
-
-                            final attendanceRows = List<Map<String, dynamic>>.from(g['_attendance_rows'] as List? ?? []);
-
-                                                      return Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          Row(
-                                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                            children: [
-                                                              Expanded(child: Text(title, style: TextStyle(color: AppColors.textDark))),
-                                                              IconButton(
-                                                                onPressed: () async {
-                                                                  await _toggleGoalCompletion(goalId, it.classId, !completed);
-                                                                  // Refresh
-                                                                  setState(() {});
-                                                                },
-                                                                icon: Icon(completed ? Icons.check_circle : Icons.circle_outlined, color: completed ? AppColors.primary : AppColors.textSubtle),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          if (required > 0)
-                                                            Padding(
-                                                              padding: const EdgeInsets.symmetric(vertical: 6.0),
-                                                              child: Column(
-                                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                                children: [
-                                                                  ClipRRect(
-                                                                    borderRadius: BorderRadius.circular(6),
-                                                                    child: LinearProgressIndicator(
-                                                                      value: goalProgress,
-                                                                      minHeight: 6,
-                                                                      backgroundColor: Colors.grey.shade200,
-                                                                      color: AppColors.primary,
-                                                                    ),
-                                                                  ),
-                                                                  const SizedBox(height: 4),
-                                                                  Text('${(goalProgress*100).toStringAsFixed(0)}% • ${attendedForGoal}/${required} sessions (across linked classes)', style: TextStyle(color: AppColors.textSubtle, fontSize: 12)),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                          // Show contributing attendance rows for this goal
-                                                          if (attendanceRows.isNotEmpty)
-                                                            Padding(
-                                                              padding: const EdgeInsets.only(top: 6.0, bottom: 6.0),
-                                                              child: Column(
-                                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                                children: attendanceRows.take(3).map((ar) {
-                                                                  final attendedAt = ar['attended_at'] as DateTime?;
-                                                                  final dateStr = attendedAt != null ? DateFormat.yMMMd().add_jm().format(attendedAt) : 'Unknown';
-                                                                  final cname = ar['class_name']?.toString() ?? 'Class';
-                                                                  final duration = ar['duration_minutes'] != null ? '${ar['duration_minutes']} min' : '—';
-                                                                  return Padding(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                                                    child: Text('$dateStr — $cname • $duration', style: TextStyle(color: AppColors.textSubtle, fontSize: 12)),
-                                                                  );
-                                                                }).toList(),
-                                                              ),
-                                                            ),
-                                                        ],
-                                                      );
-                                                    }).toList(),
-                                                  );
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                                return CheckboxListTile(
+                                  value: completed,
+                                  title: Text(title),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(loading ? 'Loading progress...' : '$attended / $required sessions'),
+                                      const SizedBox(height: 6),
+                                      required > 0
+                                          ? LinearProgressIndicator(value: progress)
+                                          : SizedBox.shrink(),
+                                    ],
+                                  ),
+                                  onChanged: (v) => _toggleGoalCompletion(goalId, v == true),
+                                );
+                              },
+                            );
+                          }).toList()
+                        : [ListTile(title: Text('No goals linked for this class'))],
+                  );
+                },
+              );
+            }
+          },
+        ),
       ),
     );
   }
-}
 
-/// Simple data holder for what we show on the screen
-class ClassProgress {
-  final dynamic classId;
-  final String className;
-  final int attendedCount;
-  final int targetSessions;
-  final double progressPercent; // 0.0 - 1.0
-  final int weeksActive;
-  final double avgPerWeek;
-  final int last30DaysCount;
-  final DateTime? firstAttendedAt;
-  final DateTime? lastAttendedAt;
+  // Loads registered classes and adds class name + associated goals
+  Future<List<Map<String, dynamic>>> _loadClassesWithGoals() async {
+    final registered = await _getRegisteredClasses();
+    if (registered.isEmpty) return [];
 
-  ClassProgress({
-    required this.classId,
-    required this.className,
-    required this.attendedCount,
-    required this.targetSessions,
-    required this.progressPercent,
-    this.weeksActive = 0,
-    this.avgPerWeek = 0.0,
-    this.last30DaysCount = 0,
-    this.firstAttendedAt,
-    this.lastAttendedAt,
-  });
+    final List<Map<String, dynamic>> results = [];
+
+    for (final reg in registered) {
+      // student_classes rows may include a `class_id` column that points to the classes table.
+      // Use that when available; otherwise fall back to the registration row's id.
+      final registrationId = reg['id'];
+      final classId = reg.containsKey('class_id') ? reg['class_id'] : registrationId;
+
+      // Fetch class details
+      Map<String, dynamic>? classRow;
+      try {
+        classRow = await Supabase.instance.client
+            .from('classes')
+            .select('id, class_name')
+            .eq('id', classId)
+            .maybeSingle();
+      } catch (_) {
+        classRow = null;
+      }
+
+      final className = (classRow != null && classRow['class_name'] != null)
+          ? classRow['class_name']
+          : reg['class_name'];
+
+      // Fetch linked goals in one nested query (returns nested `goals` object/array depending on PostgREST)
+      List<Map<String, dynamic>> goalsList = [];
+      try {
+        final linksResp = await Supabase.instance.client
+            .from('class_goal_links')
+            .select('goal_id, goals(id, key, title, required_sessions)')
+            .eq('class_id', classId);
+
+        final links = List<Map<String, dynamic>>.from(linksResp as List? ?? []);
+        for (final l in links) {
+          // Supabase/PostgREST may return the related row as a map or an array under the 'goals' key.
+          dynamic nested = l['goals'];
+          Map<String, dynamic>? goalResp;
+          if (nested is List && nested.isNotEmpty) {
+            goalResp = Map<String, dynamic>.from(nested.first as Map);
+          } else if (nested is Map) {
+            goalResp = Map<String, dynamic>.from(nested);
+          } else if (l.containsKey('goal_id')) {
+            // fallback: fetch the goal row directly
+            try {
+              final g = await Supabase.instance.client
+                  .from('goals')
+                  .select('id, key, title, required_sessions')
+                  .eq('id', l['goal_id'])
+                  .maybeSingle();
+              if (g != null) goalResp = Map<String, dynamic>.from(g as Map);
+            } catch (_) {}
+          }
+
+          if (goalResp != null) goalsList.add(goalResp);
+        }
+      } catch (e) {
+        // log to help debug why goals may be missing
+        // ignore errors but print for debugging during development
+        print('Error fetching goals for class $classId: $e');
+      }
+
+      // Debug: how many goals found for this class
+      print('Class $classId linked goals count: ${goalsList.length}');
+
+      results.add({
+        'registration_id': registrationId,
+        'id': classId,
+        'class_name': className ?? 'Unnamed Class',
+        'goals': goalsList,
+      });
+    }
+
+    return results;
+  }
+
+  // Fetch goal metadata: whether completed and how many sessions attended across linked classes
+  Future<Map<String, dynamic>> _fetchGoalMeta(int goalId, int requiredSessions) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return {'completed': false, 'attended': 0};
+
+    bool completed = false;
+    int attendedCount = 0;
+
+    try {
+      // Check completion
+      final comp = await Supabase.instance.client
+          .from('user_goal_completions')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('goal_id', goalId)
+          .maybeSingle();
+      completed = comp != null;
+    } catch (_) {}
+
+    try {
+      // Count attendance rows for classes linked to this goal
+      // First fetch class_ids linked to this goal
+      final links = await Supabase.instance.client
+          .from('class_goal_links')
+          .select('class_id')
+          .eq('goal_id', goalId);
+      final classIds = List<Map<String, dynamic>>.from(links as List? ?? [])
+          .map((e) => e['class_id'])
+          .whereType<int>()
+          .toList();
+
+      if (classIds.isNotEmpty) {
+        final resp = await Supabase.instance.client.rpc('get_user_attendance_counts', params: {
+          'p_user_id': userId,
+        });
+        // rpc returns list of {class_id, attended_count}
+        final rows = List<Map<String, dynamic>>.from(resp as List? ?? []);
+        for (final r in rows) {
+          final cid = r['class_id'];
+          final ccount = r['attended_count'] ?? r['attended'] ?? 0;
+          if (classIds.contains(cid)) attendedCount += (ccount as int);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return {'completed': completed, 'attended': attendedCount, 'required': requiredSessions};
+  }
+
+  // Toggle completion: insert or delete a user_goal_completions row
+  Future<void> _toggleGoalCompletion(int goalId, bool completed) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in')));
+      return;
+    }
+    setState(() {});
+
+    final parsedGoalId = int.tryParse(goalId.toString()) ?? goalId;
+
+    if (completed) {
+      try {
+        final resp = await Supabase.instance.client
+            .from('user_goal_completions')
+            .insert({'user_id': userId, 'goal_id': parsedGoalId}).select();
+        final inserted = List<Map<String, dynamic>>.from(resp as List? ?? []);
+        if (inserted.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to mark goal complete')));
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to mark goal complete: $e')));
+      }
+    } else {
+      try {
+        final resp = await Supabase.instance.client
+            .from('user_goal_completions')
+            .delete()
+            .match({'user_id': userId, 'goal_id': parsedGoalId}).select();
+        final deleted = List<Map<String, dynamic>>.from(resp as List? ?? []);
+        if (deleted.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to unmark goal completion')));
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to unmark goal completion: $e')));
+      }
+    }
+
+    // ensure UI updates to reflect actual state
+    setState(() {});
+  }
+
+  // Fetch registered classes for the user from Supabase, returns a list of classes
+  Future<List<Map<String, dynamic>>> _getRegisteredClasses() async {
+    // Fetch registered classes for the user from the supabase
+
+    final user_id = Supabase.instance.client.auth.currentUser?.id;
+    if (user_id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view your account.')),
+      );
+      return [];
+    }
+
+    final response = await Supabase.instance.client
+      .from('student_classes')
+      .select()
+      .eq('profile_id', user_id); 
+
+      final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
+      // Return classes
+      return classes;
+  }
+
+  // Fetch goals for each class and process them
+  Future<Map<String, dynamic>?> _getGoalsPerClass(List<Map<String, dynamic>> classes) async {
+  // Fetch goals for each class from the supabase
+    for (var class_index in classes) {
+      final classId = class_index['id'];
+      final response = await Supabase.instance.client
+        .from('class_goal_links')
+        .select()
+        .eq('class_id', classId); // Assuming classId is available
+
+      final goals = List<Map<String, dynamic>>.from(response as List? ?? []);
+      // Process goals for the class
+      for (var goal in goals) {
+        final goalId = goal['goal_id'];
+        // Fetch goal details if needed
+        final goalDetails = await Supabase.instance.client
+          .from('goals')
+          .select()
+          .eq('id', goalId)
+          .maybeSingle();
+
+        // Store goals details as needed
+        if (goalDetails != null) {
+          print('Class ID: $classId, Goal: ${goalDetails['title']}');
+        }
+        return goalDetails;
+      }
+    }
+    return null;
+  }
 }
