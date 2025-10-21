@@ -26,46 +26,81 @@ class _TrackProgressPageState extends State<TrackProgressPage> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchGoalsForClass(dynamic classId, int attendedForClass) async {
-  // Fetch canonical goals for the class from a deduplicated server-side view
-  final resp = await _supabase
-    .from('view_unique_class_goals')
-    .select('id, title, description, required_sessions, sort_order')
-    .eq('class_id', classId)
-    .order('sort_order', ascending: true);
+    // New model: goals are global and classes link to goals via class_goal_links.
+    // 1) find goals linked to this class
+    final linkedResp = await _supabase
+        .from('class_goal_links')
+        .select('goal_id')
+        .eq('class_id', classId);
+    final linked = List<Map<String, dynamic>>.from(linkedResp as List? ?? []);
+    if (linked.isEmpty) return [];
 
-    final list = List<Map<String, dynamic>>.from(resp as List? ?? []);
+    final goalIds = linked.map((l) => l['goal_id']).toList();
 
-    if (list.isEmpty) return list;
+    // 2) fetch goal definitions
+    final goalsResp = await _supabase
+        .from('goals')
+        .select('id, key, title, description, required_sessions')
+        .filter('id', 'in', '(${goalIds.join(',')})');
+    final goals = List<Map<String, dynamic>>.from(goalsResp as List? ?? []);
+    if (goals.isEmpty) return [];
 
-    // Fetch the current user's completion rows for these goals to avoid duplicates
     final user = _supabase.auth.currentUser;
     Map<dynamic, Map<String, dynamic>> progressMap = {};
     if (user != null) {
-      final goalIds = list.map((g) => g['id']).toList();
-    final progResp = await _supabase
-      .from('user_goal_progress')
-      .select('goal_id, completed_at')
-      .eq('user_id', user.id)
-      .filter('goal_id', 'in', '(${goalIds.join(',')})');
-
+      final progResp = await _supabase
+        .from('user_goal_progress')
+        .select('goal_id, completed_at')
+        .eq('user_id', user.id)
+        .filter('goal_id', 'in', '(${goalIds.join(',')})');
       final progList = List<Map<String, dynamic>>.from(progResp as List? ?? []);
-      for (final p in progList) {
-        progressMap[p['goal_id']] = p;
-      }
+      for (final p in progList) progressMap[p['goal_id']] = p;
     }
 
-    // Attach attended count and completion info
-    for (final g in list) {
-      g['_attended_for_class'] = attendedForClass;
-      final pid = g['id'];
-      final p = progressMap[pid];
+    // For each goal, find all classes linked to that goal, then count attendance for the user across those classes
+    final List<Map<String, dynamic>> out = [];
+    for (final g in goals) {
+      final gid = g['id'];
+      // fetch linked class ids
+      final classesResp = await _supabase
+          .from('class_goal_links')
+          .select('class_id')
+          .eq('goal_id', gid);
+      final classList = List<Map<String, dynamic>>.from(classesResp as List? ?? []);
+      final classIds = classList.map((c) => c['class_id']).toList();
+
+      // count attendance across those classes for this user
+      int attendedCount = 0;
+      List<Map<String, dynamic>> attendanceRows = [];
+      if (user != null && classIds.isNotEmpty) {
+        final attResp = await _supabase
+            .from('user_class_attendance')
+            .select('attended_at, duration_minutes, notes, class_id, classes(class_name)')
+            .eq('user_id', user.id)
+            .filter('class_id', 'in', '(${classIds.join(',')})')
+            .order('attended_at', ascending: false);
+        final rows = List<Map<String, dynamic>>.from(attResp as List? ?? []);
+        attendedCount = rows.length;
+        for (final r in rows) {
+          attendanceRows.add({
+            'attended_at': r['attended_at'] != null ? DateTime.tryParse(r['attended_at'].toString())?.toLocal() : null,
+            'class_name': (r['classes'] != null && (r['classes'] is Map)) ? r['classes']['class_name'] : null,
+            'duration_minutes': r['duration_minutes'],
+            'class_id': r['class_id'],
+            'notes': r['notes'],
+          });
+        }
+      }
+
+      final p = progressMap[gid];
       g['completed'] = p != null;
       g['completed_at'] = p != null ? p['completed_at'] : null;
-      // Placeholder for contributing attendance rows; will be filled by caller if needed
-      g['_attendance_rows'] = <Map<String, dynamic>>[];
+      g['_attended_for_goal'] = attendedCount;
+      g['_attendance_rows'] = attendanceRows;
+      out.add(g);
     }
 
-    return list;
+    return out;
   }
 
   /// Fetch attendance rows for a given class and user, optionally limited to rows
@@ -484,14 +519,14 @@ class _TrackProgressPageState extends State<TrackProgressPage> {
                                                     children: goals.map((g) {
                                                       final goalId = g['id'];
                                                       final title = g['title'] ?? 'Goal';
-                                                      final required = (g['required_sessions'] as num?)?.toInt() ?? 0;
-                                                      final completed = g['completed'] == true;
-                                                      final attendedForGoal = (g['_attended_for_class'] as int? ?? 0);
-                                                      final goalProgress = required > 0
-                                                          ? (attendedForGoal / required).clamp(0.0, 1.0)
-                                                          : 0.0;
+                            final required = (g['required_sessions'] as num?)?.toInt() ?? 0;
+                            final completed = g['completed'] == true;
+                            final attendedForGoal = (g['_attended_for_goal'] as int? ?? (g['_attended_for_class'] as int? ?? 0));
+                            final goalProgress = required > 0
+                              ? (attendedForGoal / required).clamp(0.0, 1.0)
+                              : 0.0;
 
-                                                      final attendanceRows = List<Map<String, dynamic>>.from(g['_attendance_rows'] as List? ?? []);
+                            final attendanceRows = List<Map<String, dynamic>>.from(g['_attendance_rows'] as List? ?? []);
 
                                                       return Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,7 +561,7 @@ class _TrackProgressPageState extends State<TrackProgressPage> {
                                                                     ),
                                                                   ),
                                                                   const SizedBox(height: 4),
-                                                                  Text('${(goalProgress*100).toStringAsFixed(0)}% • ${attendedForGoal}/${required} sessions', style: TextStyle(color: AppColors.textSubtle, fontSize: 12)),
+                                                                  Text('${(goalProgress*100).toStringAsFixed(0)}% • ${attendedForGoal}/${required} sessions (across linked classes)', style: TextStyle(color: AppColors.textSubtle, fontSize: 12)),
                                                                 ],
                                                               ),
                                                             ),
