@@ -167,7 +167,6 @@ class _LogInPageState extends State<LogInPage> {
                 ),
               ),
               const SizedBox(height: 12),
-
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,

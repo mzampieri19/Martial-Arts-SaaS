@@ -4,6 +4,7 @@ import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
+import 'track_progress_page.dart';
 
 // Colors to be used in home page
 class AppColors {
@@ -198,7 +199,7 @@ class HomeContentPage extends StatelessWidget {
             SizedBox(height: AppConstants.spaceXl),
             
             // Track Progress Button
-            _buildTrackProgressButton(),
+            _buildTrackProgressButton(context),
             
             SizedBox(height: AppConstants.spaceXl),
             
@@ -321,13 +322,18 @@ class HomeContentPage extends StatelessWidget {
     );
   }
 
-  Widget _buildTrackProgressButton() {
+  Widget _buildTrackProgressButton(BuildContext context) {
     return Center(
       child: SizedBox(
         width: 320,
         child: ElevatedButton(
           onPressed: () {
-            // Navigate to track progress page
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TrackProgressPage(),
+              ),
+            );
           },
           child: const Text('Track Progress'),
         ),
