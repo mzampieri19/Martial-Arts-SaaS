@@ -167,6 +167,12 @@ class _LogInPageState extends State<LogInPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              Text("Sample Email and Passwords for Easier testing:"
+                  "\nCoach: graceyang@brandeis.edu / password: graceyang"
+                  "\nOwner: jdecambre@brandeis.edu / password: jaydend"
+                  "\nStudent: huayizhang@brandeis.edu / password: changeme123"
+                  ),
+              const SizedBox(height: 14),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
