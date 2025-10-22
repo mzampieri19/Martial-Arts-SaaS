@@ -1,6 +1,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'constants/app_constants.dart';
+import 'components/index.dart';
 
 class TrackingProgressPage extends StatefulWidget {
   @override
@@ -96,107 +98,150 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Tracking Progress'),
+      backgroundColor: AppConstants.backgroundColor,
+      appBar: AppBarWidget(
+        title: 'Track Progress',
+        showBackButton: true,
       ),
-      body: Center(
-        // Show the registered classes and their associated goals here
-        child: FutureBuilder(
-          future: _loadClassesWithGoals(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return CircularProgressIndicator();
-            } else if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
-            } else if (!snapshot.hasData || (snapshot.data as List).isEmpty) {
-              return Text('No registered classes found.');
-            } else {
-              final raw = snapshot.data;
-              final classes = (raw is List)
-                  ? List<Map<String, dynamic>>.from(raw as List)
-                  : <Map<String, dynamic>>[];
+      body: FutureBuilder(
+        future: _loadClassesWithGoals(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
 
-              // Build unique goals summary from classes' goals
-              final Map<int, Map<String, dynamic>> goalsSummary = {};
-              for (final c in classes) {
-                final goals = c['goals'] as List? ?? [];
-                for (final g in goals) {
-                  final gid = g['id'];
-                  if (gid is int && !goalsSummary.containsKey(gid)) {
-                    goalsSummary[gid] = Map<String, dynamic>.from(g as Map<String, dynamic>);
-                  }
-                }
+          final raw = snapshot.data;
+          final classes = (raw is List) ? List<Map<String, dynamic>>.from(raw as List) : <Map<String, dynamic>>[];
+          if (classes.isEmpty) return const Center(child: Text('No registered classes found.'));
+
+          // Build unique goals summary from classes' goals
+          final Map<int, Map<String, dynamic>> goalsSummary = {};
+          for (final c in classes) {
+            final goals = c['goals'] as List? ?? [];
+            for (final g in goals) {
+              final gid = g['id'];
+              if (gid is int && !goalsSummary.containsKey(gid)) {
+                goalsSummary[gid] = Map<String, dynamic>.from(g as Map<String, dynamic>);
               }
+            }
+          }
 
-              final List<Widget> items = [];
-
-              // Add overall goal summary widgets at the top
-              for (final entry in goalsSummary.entries) {
-                final gid = entry.key;
-                final g = entry.value;
-                final required = (g['required_sessions'] ?? 0) as int;
-                final progress = _goalProgress[gid] ?? 0;
-                final pct = required > 0 ? (progress / required).clamp(0.0, 1.0) : 0.0;
-                items.add(ListTile(
-                  title: Text(g['title'] ?? g['key'] ?? 'Goal $gid'),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('$progress / $required sessions'),
-                      const SizedBox(height: 6),
-                      required > 0 ? LinearProgressIndicator(value: pct) : const SizedBox.shrink(),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(AppConstants.spaceLg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Goal summary card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppConstants.spaceLg),
+                  decoration: BoxDecoration(
+                    color: AppConstants.surfaceColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
-                ));
-              }
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Goals', style: AppConstants.headingSm.copyWith(color: AppConstants.textPrimary)),
+                      const SizedBox(height: AppConstants.spaceMd),
+                      ...goalsSummary.entries.map((entry) {
+                        final gid = entry.key;
+                        final g = entry.value;
+                        final required = (g['required_sessions'] ?? 0) as int;
+                        final progress = _goalProgress[gid] ?? 0;
+                        final pct = required > 0 ? (progress / required).clamp(0.0, 1.0) : 0.0;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppConstants.spaceMd),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(child: Text(g['title'] ?? g['key'] ?? 'Goal $gid', style: AppConstants.labelLg)),
+                                  Text('$progress / $required', style: AppConstants.labelMd),
+                                ],
+                              ),
+                              const SizedBox(height: AppConstants.spaceSm),
+                              required > 0 ? LinearProgressIndicator(value: pct) : const SizedBox.shrink(),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                ),
 
-              // Then add class tiles
-              for (final classInfo in classes) {
-                final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
-                final goals = classInfo['goals'] as List? ?? [];
-                final classTile = ExpansionTile(
-                  title: Text(className),
-                  subtitle: Text('Class ID: ${classInfo['id']}'),
-                  children: goals.isNotEmpty
-                      ? goals.map<Widget>((g) {
-                          final goalId = g['id'] as int;
-                          final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
-                          final cid = classInfo['id'] as int;
-                          final key = '${goalId}:${cid}';
-                          final checked = _marksCache[key] == true;
-                          final progress = _goalProgress[goalId] ?? 0;
-                          return ListTile(
-                            title: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(child: Text(title)),
-                                Text('$progress'),
-                              ],
-                            ),
-                            subtitle: Row(
-                              children: [
-                                Expanded(child: Text('Required: ${g['required_sessions'] ?? 0}')),
-                                Checkbox(
-                                  value: checked,
-                                  onChanged: (v) async {
-                                    final mark = v == true;
-                                    await _toggleMark(goalId, cid, mark);
-                                  },
+                const SizedBox(height: AppConstants.spaceLg),
+
+                // Classes list
+                ...classes.map((classInfo) {
+                  final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
+                  final goals = classInfo['goals'] as List? ?? [];
+                  final cid = classInfo['id'] as int;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: AppConstants.spaceMd),
+                    padding: const EdgeInsets.all(AppConstants.spaceMd),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surfaceColor,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ExpansionTile(
+                      title: Text(className, style: AppConstants.headingXs),
+                      subtitle: Text('Class ID: $cid', style: AppConstants.bodySm),
+                      children: goals.isNotEmpty
+                          ? goals.map<Widget>((g) {
+                              final goalId = g['id'] as int;
+                              final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
+                              final keyStr = '${goalId}:${cid}';
+                              final checked = _marksCache[keyStr] == true;
+                              final progress = _goalProgress[goalId] ?? 0;
+                              return ListTile(
+                                title: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text(title, style: AppConstants.bodyMd)),
+                                    Text('$progress', style: AppConstants.labelMd),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        }).toList()
-                      : [const ListTile(title: Text('No goals linked for this class'))],
-                );
-
-                items.add(classTile);
-              }
-
-              return ListView(children: items);
-            }
-          },
-        ),
+                                subtitle: Row(
+                                  children: [
+                                    Expanded(child: Text('Required: ${g['required_sessions'] ?? 0}')),
+                                    Checkbox(
+                                      value: checked,
+                                      onChanged: (v) async {
+                                        final mark = v == true;
+                                        await _toggleMark(goalId, cid, mark);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList()
+                          : [const ListTile(title: Text('No goals linked for this class'))],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
