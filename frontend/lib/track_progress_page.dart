@@ -26,9 +26,70 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
   Future<void> _loadGoalsOnInit() async {
     try {
       final classes = await _getRegisteredClasses();
+      // preload user progress data (completions + attendance counts)
+      await _loadUserProgressData();
       await _getGoalsPerClass(classes);
     } catch (e) {
       // ignore for now
+    }
+  }
+
+  // Cached user progress state to avoid per-goal RPCs
+  // Map of goal_id -> progress (number of classes completed for that goal)
+  final Map<int, int> _goalProgress = <int, int>{};
+  final Map<int, int> _attendanceByClass = <int, int>{};
+  // Cache of per-user per-class marks: key '${goalId}:${classId}' -> true
+  final Map<String, bool> _marksCache = <String, bool>{};
+
+  Future<void> _loadUserProgressData() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      // Load completed goals + progress
+      final compResp = await Supabase.instance.client
+          .from('user_goal_completions')
+          .select('goal_id, progress')
+          .eq('user_id', userId);
+      final comps = List<Map<String, dynamic>>.from(compResp as List? ?? []);
+      _goalProgress.clear();
+      for (final c in comps) {
+        final gid = c['goal_id'];
+        final prog = c['progress'] ?? 0;
+        if (gid is int) _goalProgress[gid] = (prog is int) ? prog : int.tryParse(prog.toString()) ?? 0;
+      }
+
+      // Load attendance counts via RPC once
+      final rpcResp = await Supabase.instance.client.rpc('get_user_attendance_counts', params: {'p_user_id': userId});
+      final rows = List<Map<String, dynamic>>.from(rpcResp as List? ?? []);
+      _attendanceByClass.clear();
+      for (final r in rows) {
+        final cid = r['class_id'];
+        final cnt = r['attended_count'] ?? r['attended'] ?? 0;
+        if (cid is int) _attendanceByClass[cid] = cnt as int;
+      }
+
+      // Load per-class marks
+      try {
+        final marksResp = await Supabase.instance.client
+            .from('user_goal_class_marks')
+            .select('goal_id, class_id')
+            .eq('user_id', userId);
+        final marks = List<Map<String, dynamic>>.from(marksResp as List? ?? []);
+        _marksCache.clear();
+        for (final m in marks) {
+          final gid = m['goal_id'];
+          final cid = m['class_id'];
+          if (gid is int && cid is int) _marksCache['${gid}:${cid}'] = true;
+        }
+      } catch (e) {
+        print('Error loading marks: $e');
+      }
+
+      // trigger UI update
+      setState(() {});
+    } catch (e) {
+      print('Error loading user progress data: $e');
     }
   }
 
@@ -55,60 +116,124 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                   ? List<Map<String, dynamic>>.from(raw as List)
                   : <Map<String, dynamic>>[];
 
-              return ListView.builder(
-                itemCount: classes.length,
-                itemBuilder: (context, index) {
-                  final classInfo = classes[index];
-                  final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
-                  final goals = classInfo['goals'] as List? ?? [];
+              // Build unique goals summary from classes' goals
+              final Map<int, Map<String, dynamic>> goalsSummary = {};
+              for (final c in classes) {
+                final goals = c['goals'] as List? ?? [];
+                for (final g in goals) {
+                  final gid = g['id'];
+                  if (gid is int && !goalsSummary.containsKey(gid)) {
+                    goalsSummary[gid] = Map<String, dynamic>.from(g as Map<String, dynamic>);
+                  }
+                }
+              }
 
-                  return ExpansionTile(
-                    title: Text(className),
-                    subtitle: Text('Class ID: ${classInfo['id']}'),
-                    children: goals.isNotEmpty
-                        ? goals.map<Widget>((g) {
-                            final goalId = g['id'];
-                            final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
-                            return FutureBuilder<Map<String, dynamic>>(
-                              future: _fetchGoalMeta(goalId, g['required_sessions'] ?? 0),
-                              builder: (context, snap) {
-                                final loading = snap.connectionState == ConnectionState.waiting;
-                                final meta = snap.data ?? {};
-                                final completed = meta['completed'] == true;
-                                final attended = meta['attended'] ?? 0;
-                                final required = (g['required_sessions'] ?? 0) as int;
-                                double progress = 0.0;
-                                if (required > 0) {
-                                  progress = (attended / required).clamp(0.0, 1.0);
-                                }
+              final List<Widget> items = [];
 
-                                return CheckboxListTile(
-                                  value: completed,
-                                  title: Text(title),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(loading ? 'Loading progress...' : '$attended / $required sessions'),
-                                      const SizedBox(height: 6),
-                                      required > 0
-                                          ? LinearProgressIndicator(value: progress)
-                                          : SizedBox.shrink(),
-                                    ],
-                                  ),
-                                  onChanged: (v) => _toggleGoalCompletion(goalId, v == true),
-                                );
-                              },
-                            );
-                          }).toList()
-                        : [ListTile(title: Text('No goals linked for this class'))],
-                  );
-                },
-              );
+              // Add overall goal summary widgets at the top
+              for (final entry in goalsSummary.entries) {
+                final gid = entry.key;
+                final g = entry.value;
+                final required = (g['required_sessions'] ?? 0) as int;
+                final progress = _goalProgress[gid] ?? 0;
+                final pct = required > 0 ? (progress / required).clamp(0.0, 1.0) : 0.0;
+                items.add(ListTile(
+                  title: Text(g['title'] ?? g['key'] ?? 'Goal $gid'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('$progress / $required sessions'),
+                      const SizedBox(height: 6),
+                      required > 0 ? LinearProgressIndicator(value: pct) : const SizedBox.shrink(),
+                    ],
+                  ),
+                ));
+              }
+
+              // Then add class tiles
+              for (final classInfo in classes) {
+                final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
+                final goals = classInfo['goals'] as List? ?? [];
+                final classTile = ExpansionTile(
+                  title: Text(className),
+                  subtitle: Text('Class ID: ${classInfo['id']}'),
+                  children: goals.isNotEmpty
+                      ? goals.map<Widget>((g) {
+                          final goalId = g['id'] as int;
+                          final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
+                          final cid = classInfo['id'] as int;
+                          final key = '${goalId}:${cid}';
+                          final checked = _marksCache[key] == true;
+                          final progress = _goalProgress[goalId] ?? 0;
+                          return ListTile(
+                            title: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(child: Text(title)),
+                                Text('$progress'),
+                              ],
+                            ),
+                            subtitle: Row(
+                              children: [
+                                Expanded(child: Text('Required: ${g['required_sessions'] ?? 0}')),
+                                Checkbox(
+                                  value: checked,
+                                  onChanged: (v) async {
+                                    final mark = v == true;
+                                    await _toggleMark(goalId, cid, mark);
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList()
+                      : [const ListTile(title: Text('No goals linked for this class'))],
+                );
+
+                items.add(classTile);
+              }
+
+              return ListView(children: items);
             }
           },
         ),
       ),
     );
+  }
+
+  Future<void> _toggleMark(int goalId, int classId, bool mark) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // optimistic update
+    final key = '${goalId}:${classId}';
+    _marksCache[key] = mark;
+    setState(() {});
+
+    try {
+      final resp = await Supabase.instance.client.rpc('toggle_user_goal_mark', params: {
+        'p_user_id': userId,
+        'p_goal_id': goalId,
+        'p_class_id': classId,
+        'p_mark': mark,
+      });
+      print('RPC toggle_user_goal_mark response: $resp');
+
+      // refresh goal progress and marks
+      await _loadUserProgressData();
+    } catch (e) {
+      // Try to show as much info as possible
+      String msg = e.toString();
+      try {
+        // Some Supabase errors include a Map-like body
+        if (e is Map && e.containsKey('message')) msg = e['message'].toString();
+      } catch (_) {}
+      print('RPC toggle_user_goal_mark failed: $msg');
+      // revert optimistic change
+      _marksCache[key] = !mark;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update mark: $e')));
+    }
   }
 
   // Loads registered classes and adds class name + associated goals
@@ -191,97 +316,9 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     return results;
   }
 
-  // Fetch goal metadata: whether completed and how many sessions attended across linked classes
-  Future<Map<String, dynamic>> _fetchGoalMeta(int goalId, int requiredSessions) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return {'completed': false, 'attended': 0};
-
-    bool completed = false;
-    int attendedCount = 0;
-
-    try {
-      // Check completion
-      final comp = await Supabase.instance.client
-          .from('user_goal_completions')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('goal_id', goalId)
-          .maybeSingle();
-      completed = comp != null;
-    } catch (_) {}
-
-    try {
-      // Count attendance rows for classes linked to this goal
-      // First fetch class_ids linked to this goal
-      final links = await Supabase.instance.client
-          .from('class_goal_links')
-          .select('class_id')
-          .eq('goal_id', goalId);
-      final classIds = List<Map<String, dynamic>>.from(links as List? ?? [])
-          .map((e) => e['class_id'])
-          .whereType<int>()
-          .toList();
-
-      if (classIds.isNotEmpty) {
-        final resp = await Supabase.instance.client.rpc('get_user_attendance_counts', params: {
-          'p_user_id': userId,
-        });
-        // rpc returns list of {class_id, attended_count}
-        final rows = List<Map<String, dynamic>>.from(resp as List? ?? []);
-        for (final r in rows) {
-          final cid = r['class_id'];
-          final ccount = r['attended_count'] ?? r['attended'] ?? 0;
-          if (classIds.contains(cid)) attendedCount += (ccount as int);
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    return {'completed': completed, 'attended': attendedCount, 'required': requiredSessions};
-  }
-
-  // Toggle completion: insert or delete a user_goal_completions row
-  Future<void> _toggleGoalCompletion(int goalId, bool completed) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in')));
-      return;
-    }
-    setState(() {});
-
-    final parsedGoalId = int.tryParse(goalId.toString()) ?? goalId;
-
-    if (completed) {
-      try {
-        final resp = await Supabase.instance.client
-            .from('user_goal_completions')
-            .insert({'user_id': userId, 'goal_id': parsedGoalId}).select();
-        final inserted = List<Map<String, dynamic>>.from(resp as List? ?? []);
-        if (inserted.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to mark goal complete')));
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to mark goal complete: $e')));
-      }
-    } else {
-      try {
-        final resp = await Supabase.instance.client
-            .from('user_goal_completions')
-            .delete()
-            .match({'user_id': userId, 'goal_id': parsedGoalId}).select();
-        final deleted = List<Map<String, dynamic>>.from(resp as List? ?? []);
-        if (deleted.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to unmark goal completion')));
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to unmark goal completion: $e')));
-      }
-    }
-
-    // ensure UI updates to reflect actual state
-    setState(() {});
-  }
+  // (Old helpers `_fetchGoalMeta` and `_toggleGoalCompletion` removed —
+  // we now use per-class marks + the RPC `toggle_user_goal_mark` and
+  // the `_goalProgress` cache to render progress.)
 
   // Fetch registered classes for the user from Supabase, returns a list of classes
   Future<List<Map<String, dynamic>>> _getRegisteredClasses() async {
