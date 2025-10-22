@@ -156,7 +156,7 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -282,7 +282,7 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
               SizedBox(
                 width: 320,
                 child: DropdownButtonFormField<dynamic>(
-                  value: _selectedGoalId,
+                  initialValue: _selectedGoalId,
                   decoration: const InputDecoration(labelText: 'Goal'),
                   items: _goals.map((g) {
                     return DropdownMenuItem<dynamic>(

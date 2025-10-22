@@ -93,13 +93,10 @@ class AppButton extends StatelessWidget {
     switch (size) {
       case AppButtonSize.small:
         baseStyle = AppConstants.buttonTextSm;
-        break;
       case AppButtonSize.medium:
         baseStyle = AppConstants.buttonTextMd;
-        break;
       case AppButtonSize.large:
         baseStyle = AppConstants.buttonTextLg;
-        break;
     }
     
     return baseStyle.copyWith(color: _getTextColor());

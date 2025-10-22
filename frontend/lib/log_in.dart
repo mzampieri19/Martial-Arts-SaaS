@@ -93,20 +93,17 @@ class _LogInPageState extends State<LogInPage> {
             context,
             MaterialPageRoute(builder: (context) => const CoachHomePage()),
           );
-          break;
         case 'OWNER':
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const OwnerHomePage()),
           );
-          break;
         case 'STUDENT':
         default:
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
-          break;
       }
     } on AuthException catch (e) {
       if (!mounted) return; 

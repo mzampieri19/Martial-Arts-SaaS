@@ -19,6 +19,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
   // Show a progress bar for each goal indicating how many classes have been completed toward that goal.
 
+  @override
   void initState() {
     super.initState();
     _loadGoalsOnInit();
@@ -82,7 +83,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         for (final m in marks) {
           final gid = m['goal_id'];
           final cid = m['class_id'];
-          if (gid is int && cid is int) _marksCache['${gid}:${cid}'] = true;
+          if (gid is int && cid is int) _marksCache['$gid:$cid'] = true;
         }
       } catch (e) {
         print('Error loading marks: $e');
@@ -176,7 +177,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 ),
@@ -188,6 +189,9 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                   final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
                   final goals = classInfo['goals'] as List? ?? [];
                   final cid = classInfo['id'] as int;
+                  final date = classInfo['date'] as String? ?? 'Unknown Date';
+                  final time = classInfo['time'] as String? ?? 'Unknown Time';
+                  final coach = classInfo['coach_name'] as String? ?? 'Unknown Coach';
                   return Container(
                     margin: const EdgeInsets.only(bottom: AppConstants.spaceMd),
                     padding: const EdgeInsets.all(AppConstants.spaceMd),
@@ -204,12 +208,19 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                     ),
                     child: ExpansionTile(
                       title: Text(className, style: AppConstants.headingXs),
-                      subtitle: Text('Class ID: $cid', style: AppConstants.bodySm),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Date: $date', style: AppConstants.bodySm),
+                          Text('Time: $time', style: AppConstants.bodySm),
+                          Text('Coach: $coach', style: AppConstants.bodySm),
+                        ],
+                      ),
                       children: goals.isNotEmpty
                           ? goals.map<Widget>((g) {
                               final goalId = g['id'] as int;
                               final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
-                              final keyStr = '${goalId}:${cid}';
+                              final keyStr = '$goalId:$cid';
                               final checked = _marksCache[keyStr] == true;
                               final progress = _goalProgress[goalId] ?? 0;
                               return ListTile(
@@ -237,7 +248,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                           : [const ListTile(title: Text('No goals linked for this class'))],
                     ),
                   );
-                }).toList(),
+                }),
               ],
             ),
           );
@@ -251,8 +262,12 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     if (userId == null) return;
 
     // optimistic update
-    final key = '${goalId}:${classId}';
+    final key = '$goalId:$classId';
+    // update mark cache optimistically
     _marksCache[key] = mark;
+    // also update goal progress optimistically so the UI feels responsive
+    final oldProgress = _goalProgress[goalId] ?? 0;
+    _goalProgress[goalId] = mark ? oldProgress + 1 : (oldProgress > 0 ? oldProgress - 1 : 0);
     setState(() {});
 
     try {
@@ -264,7 +279,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       });
       print('RPC toggle_user_goal_mark response: $resp');
 
-      // refresh goal progress and marks
+      // refresh goal progress and marks from DB to ensure canonical state
       await _loadUserProgressData();
     } catch (e) {
       // Try to show as much info as possible
@@ -274,10 +289,70 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         if (e is Map && e.containsKey('message')) msg = e['message'].toString();
       } catch (_) {}
       print('RPC toggle_user_goal_mark failed: $msg');
-      // revert optimistic change
-      _marksCache[key] = !mark;
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update mark: $e')));
+      // Attempt fallback using direct table operations (best-effort)
+      try {
+        if (mark) {
+          // insert mark (idempotent with unique constraint)
+          await Supabase.instance.client
+              .from('user_goal_class_marks')
+              .insert({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
+
+          // try to increment or create user_goal_completions.progress
+          final existing = await Supabase.instance.client
+              .from('user_goal_completions')
+              .select('id, progress')
+              .eq('user_id', userId)
+              .eq('goal_id', goalId)
+              .maybeSingle();
+
+          if (existing != null && (existing as dynamic)['id'] != null) {
+            final curr = ((existing as dynamic)['progress'] ?? 0) as int;
+            await Supabase.instance.client
+                .from('user_goal_completions')
+                .update({'progress': curr + 1, 'completed_at': DateTime.now().toUtc().toIso8601String()})
+                .eq('id', (existing as dynamic)['id'])
+                .select();
+          } else {
+            await Supabase.instance.client
+                .from('user_goal_completions')
+                .insert({'user_id': userId, 'goal_id': goalId, 'progress': 1, 'completed_at': DateTime.now().toUtc().toIso8601String()});
+          }
+        } else {
+          // remove mark
+          await Supabase.instance.client
+              .from('user_goal_class_marks')
+              .delete()
+              .match({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
+
+          // decrement progress if row exists
+          final existing = await Supabase.instance.client
+              .from('user_goal_completions')
+              .select('id, progress')
+              .eq('user_id', userId)
+              .eq('goal_id', goalId)
+              .maybeSingle();
+
+          if (existing != null && (existing as dynamic)['id'] != null) {
+            final curr = ((existing as dynamic)['progress'] ?? 0) as int;
+            final newVal = (curr > 0) ? curr - 1 : 0;
+            await Supabase.instance.client
+                .from('user_goal_completions')
+                .update({'progress': newVal})
+                .eq('id', (existing as dynamic)['id'])
+                .select();
+          }
+        }
+
+        // reload authoritative state
+        await _loadUserProgressData();
+      } catch (fallbackErr) {
+        print('Fallback DB update failed: $fallbackErr');
+        // revert optimistic change
+        _marksCache[key] = !mark;
+        _goalProgress[goalId] = oldProgress;
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update mark: $e')));
+      }
     }
   }
 
@@ -309,6 +384,22 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       final className = (classRow != null && classRow['class_name'] != null)
           ? classRow['class_name']
           : reg['class_name'];
+
+      // Try to pull schedule/coach info from the nested `classes` object returned
+      // when `student_classes` select included it.
+      String? dateFromReg;
+      String? timeFromReg;
+      String? coachFromReg;
+      if (reg.containsKey('classes')) {
+        try {
+          final nested = reg['classes'];
+          if (nested is Map) {
+            dateFromReg = nested['date']?.toString();
+            timeFromReg = nested['time']?.toString();
+            coachFromReg = nested['coach_assigned']?.toString();
+          }
+        } catch (_) {}
+      }
 
       // Fetch linked goals in one nested query (returns nested `goals` object/array depending on PostgREST)
       List<Map<String, dynamic>> goalsList = [];
@@ -354,6 +445,9 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         'registration_id': registrationId,
         'id': classId,
         'class_name': className ?? 'Unnamed Class',
+        'date': dateFromReg ?? reg['date'],
+        'time': timeFromReg ?? reg['time'],
+        'coach_name': coachFromReg ?? reg['coach_assigned'] ?? reg['coach_name'],
         'goals': goalsList,
       });
     }
@@ -369,22 +463,22 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
   Future<List<Map<String, dynamic>>> _getRegisteredClasses() async {
     // Fetch registered classes for the user from the supabase
 
-    final user_id = Supabase.instance.client.auth.currentUser?.id;
-    if (user_id == null) {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please log in to view your account.')),
       );
       return [];
     }
 
+    // Request the nested `classes` row to include schedule/coach fields when available
     final response = await Supabase.instance.client
       .from('student_classes')
-      .select()
-      .eq('profile_id', user_id); 
+      .select('*, classes(id, class_name, date, time, coach_assigned)')
+      .eq('profile_id', userId);
 
-      final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
-      // Return classes
-      return classes;
+    final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
+    return classes;
   }
 
   // Fetch goals for each class and process them
