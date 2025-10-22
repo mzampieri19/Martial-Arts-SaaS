@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/coach_home.dart';
-import 'package:frontend/components/app_button.dart'; // keep if you use it elsewhere
-import 'package:frontend/owner_home.dart';
+// keep if you use it elsewhere
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'log_in.dart';
 import 'sign_up.dart';
-import 'home.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
