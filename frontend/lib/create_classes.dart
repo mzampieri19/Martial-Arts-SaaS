@@ -106,8 +106,8 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
         'registered_users': registeredUsers, // Now a JSON object
       }).select('id');
 
-      final inserted = List<Map<String, dynamic>>.from(insertResp as List? ?? []);
-      final newClassId = inserted.isNotEmpty ? inserted.first['id'] : null;
+      final createdRows = List<Map<String, dynamic>>.from(insertResp as List? ?? []);
+      final newClassId = createdRows.isNotEmpty ? createdRows.first['id'] : null;
 
       // Create class_goal_links entry if a goal was selected
       if (_selectedGoalId != null && newClassId != null) {
@@ -119,16 +119,36 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
             'goal_id': parsedGoalId,
           }).select();
 
-          final inserted = List<Map<String, dynamic>>.from(linkResp as List? ?? []);
-          if (inserted.isEmpty) {
+          // Log the raw response so we can diagnose permission or constraint issues.
+          // The Supabase client will typically return a List of inserted rows on success.
+          // If something goes wrong, the response may be an error thrown which will be
+          // caught by the surrounding catch block.
+          // We'll inspect the returned object explicitly.
+          final linkRows = List<Map<String, dynamic>>.from(linkResp as List? ?? []);
+          if (linkRows.isEmpty) {
+            // No rows returned — surface this to the user for debugging
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Class created but linking goal failed (no rows returned)')),
             );
+            // Also print to console for developer debugging
+            // ignore: avoid_print
+            print('class_goal_links insert returned empty list for class_id=$newClassId goal_id=$parsedGoalId');
+          } else {
+            // Success — print the inserted row for verification
+            // ignore: avoid_print
+            print('class_goal_links inserted: ${linkRows.first}');
           }
-        } catch (e) {
+        } catch (e, st) {
+          // Surface error message to user and print stack for debugging
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Class created but failed to link goal: $e')),
           );
+          // ignore: avoid_print
+          print('Error inserting class_goal_links for class_id=$newClassId goal=$_selectedGoalId');
+          // ignore: avoid_print
+          print(e);
+          // ignore: avoid_print
+          print(st);
         }
       }
 
