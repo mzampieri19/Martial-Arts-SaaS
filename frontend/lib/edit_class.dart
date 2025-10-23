@@ -23,34 +23,11 @@ class _EditClassPageState extends State<EditClassPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   late List<Map<String, dynamic>> _classes = [];
   late Future<void> _loadFuture;
-  late List<Map<String, dynamic>> _coaches = [];
 
   void initState() {
     // On init, load all classes and coaches
     super.initState();
     _loadFuture = _loadAllClasses();
-    _loadCoaches();
-  }
-
-  // Method to get all the coaches from Supabase
-  Future<void> _loadCoaches() async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select('username, Role')
-          .eq('Role', 'coach');
-      // Handle the response and update state if needed
-      final list = List<Map<String, dynamic>>.from(response as List<dynamic>? ?? []);
-      setState(() {
-        _coaches = list;
-      }); 
-      // You can store coaches in a state variable if needed
-    } catch (e) {
-      // Show a pop up error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading coaches: $e')),
-      );
-    }
   }
 
   // Method to get all the classes from Supabase
@@ -121,19 +98,14 @@ class _EditClassPageState extends State<EditClassPage> {
     dynamic selectedGoal = null;
     bool saving = false;
 
-    // load goals and coaches for the dialog
-    List<Map<String, dynamic>> dialogGoals = [];
-    List<Map<String, dynamic>> dialogCoaches = [];
+  // load goals for the dialog
+  List<Map<String, dynamic>> dialogGoals = [];
     try {
       final gResp = await _supabase.from('goals').select('id, key, title, required_sessions').order('title', ascending: true);
       dialogGoals = List<Map<String, dynamic>>.from(gResp as List? ?? []);
     } catch (_) {}
 
-    try {
-      // only load profiles with Role = 'coach' (case-insensitive)
-      final cResp = await _supabase.from('profiles').select('username, Role').ilike('Role', 'coach');
-      dialogCoaches = List<Map<String, dynamic>>.from(cResp as List? ?? []);
-    } catch (_) {}
+    // coaches are loaded in the dialog's FutureBuilder based on the viewer's role
 
     // attempt to load existing class_goal_links selection
     try {
@@ -157,81 +129,124 @@ class _EditClassPageState extends State<EditClassPage> {
       context: context,
       builder: (context) {
         return StatefulBuilder(builder: (context, setDialogState) {
-          // dedupe coach usernames and goals to avoid duplicate Dropdown items
-          final seenCoachNames = <String>{};
-          final uniqueCoaches = dialogCoaches.where((c) {
-            final name = c['username']?.toString() ?? '';
-            if (name.isEmpty) return false;
-            if (seenCoachNames.contains(name)) return false;
-            seenCoachNames.add(name);
-            return true;
-          }).toList();
-
-          final seenGoalIds = <dynamic>{};
-          final uniqueGoals = dialogGoals.where((g) {
-            final id = g['id'];
-            if (id == null) return false;
-            if (seenGoalIds.contains(id)) return false;
-            seenGoalIds.add(id);
-            return true;
-          }).toList();
-
-          // ensure current coach value exists in uniqueCoaches, otherwise null to avoid assertion
-          final coachValue = uniqueCoaches.any((c) => c['username']?.toString() == coachCtrl.text) ? coachCtrl.text : null;
-
-          // ensure selectedGoal exists in uniqueGoals
-          final goalValue = uniqueGoals.any((g) => g['id'] == selectedGoal) ? selectedGoal : null;
+          // coach/goal values are validated by the create-style UI below
 
           return AlertDialog(
             title: const Text('Edit Class'),
             content: SingleChildScrollView(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Class Name')),
                   const SizedBox(height: 8),
 
-                  // Coach dropdown
-                  DropdownButtonFormField<String>(
-                    value: coachValue,
-                    decoration: const InputDecoration(labelText: 'Coach'),
-                    items: uniqueCoaches
-                        .map((c) => DropdownMenuItem<String>(value: c['username']?.toString() ?? '', child: Text(c['username']?.toString() ?? 'Unknown')))
-                        .toList(),
-                    onChanged: (v) => setDialogState(() => coachCtrl.text = v ?? ''),
+                  // Class Name
+                  TextField(controller: nameCtrl, decoration: _bubbleDecoration('Class Name')),
+                  const SizedBox(height: 20),
+
+                  // Coach Assigned (owner -> choose from dropdown of coaches; coach -> auto-fill themselves)
+                  FutureBuilder<Map<String, dynamic>?>(
+                    future: () async {
+                      final user = _supabase.auth.currentUser;
+                      if (user == null) return null;
+
+                      // fetch current user's profile
+                      final profileResp = await _supabase
+                        .from('profiles')
+                        .select('id, username, Role')
+                        .eq('id', user.id)
+                        .limit(1);
+                      final profileList = List<Map<String, dynamic>>.from(profileResp as List? ?? []);
+                      final profile = profileList.isNotEmpty ? profileList.first : null;
+
+                      // if owner, also fetch all coaches
+                      List<Map<String, dynamic>> coaches = [];
+                      final role = profile?['Role']?.toString().toLowerCase();
+                      if (role == 'owner') {
+                        final coachesResp = await _supabase
+                          .from('profiles')
+                          .select('username, Role')
+                          .ilike('Role', 'coach');
+                        coaches = List<Map<String, dynamic>>.from(coachesResp as List? ?? []);
+                      }
+
+                      return {
+                        'profile': profile,
+                        'coaches': coaches,
+                      };
+                    }(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return const SizedBox(
+                          height: 56,
+                          child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                        );
+                      }
+
+                      final data = snapshot.data;
+                      final profile = data?['profile'] as Map<String, dynamic>?;
+                      final coaches = List<Map<String, dynamic>>.from(data?['coaches'] as List? ?? []);
+                      final role = profile?['Role']?.toString().toLowerCase();
+                      final username = profile?['username']?.toString() ?? '';
+
+                      if (role == 'owner') {
+                        return Column(
+                          children: [
+                            DropdownButtonFormField<String>(
+                              value: coachCtrl.text.isEmpty ? null : coachCtrl.text,
+                              decoration: _bubbleDecoration('Coach Assigned'),
+                              items: coaches
+                                .map((c) => DropdownMenuItem<String>(
+                                  value: c['username']?.toString() ?? '',
+                                  child: Text(c['username']?.toString() ?? ''),
+                                ))
+                                .toList(),
+                              onChanged: (v) {
+                                setDialogState(() {
+                                  coachCtrl.text = v ?? '';
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      } else {
+                        // coach or fallback: show read-only field with their username
+                        if (coachCtrl.text.isEmpty && username.isNotEmpty) {
+                          coachCtrl.text = username;
+                        }
+                        return Column(
+                          children: [
+                            TextField(controller: coachCtrl, readOnly: true, decoration: _bubbleDecoration('Coach Assigned')),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      }
+                    },
                   ),
 
-                  const SizedBox(height: 8),
-
-                  // Date picker field
+                  // Date Picker
                   GestureDetector(
-                  onTap: () {
-                    BottomPicker.date(
-                      pickerTitle: const Text(
-                        'Select Class Date',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      minDateTime: DateTime.now(),
-                      maxDateTime: DateTime.now().add(const Duration(days: 365 * 2)),
-                      onSubmit: (date) {
-                        dateCtrl.text =
-                            '${date.month}-${date.day}-${date.year}';
-                        setState(() {});
-                      },
-                      backgroundColor: AppColors.background,
-                    ).show(context);
-                  },
-                  child: AbsorbPointer(
-                    child: TextField(
-                      controller: dateCtrl,
-                      decoration: _bubbleDecoration('Date (MM-DD-YYYY)'),
-                    ),
+                    onTap: () {
+                      BottomPicker.date(
+                        pickerTitle: const Text(
+                          'Select Class Date',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        minDateTime: DateTime.now(),
+                        maxDateTime: DateTime.now().add(const Duration(days: 365 * 2)),
+                        onSubmit: (date) {
+                          dateCtrl.text = '${date.month}-${date.day}-${date.year}';
+                          setDialogState(() {});
+                        },
+                        backgroundColor: AppColors.background,
+                      ).show(context);
+                    },
+                    child: AbsorbPointer(child: TextField(controller: dateCtrl, decoration: _bubbleDecoration('Date (MM-DD-YYYY)'))),
                   ),
-                ),
+                  const SizedBox(height: 20),
 
-                  const SizedBox(height: 8),
-
-                  // Time field
+                  // Time Picker
                   GestureDetector(
                     onTap: () {
                       BottomPicker.time(
@@ -241,45 +256,38 @@ class _EditClassPageState extends State<EditClassPage> {
                         ),
                         initialTime: Time(hours: 12),
                         onSubmit: (time) {
-                          timeCtrl.text =
-                              '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-                          setState(() {});
+                          timeCtrl.text = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+                          setDialogState(() {});
                         },
                         backgroundColor: AppColors.background,
                       ).show(context);
                     },
-                    child: AbsorbPointer(
-                      child: TextField(
-                        controller: timeCtrl,
-                        decoration: _bubbleDecoration('Time (HH:MM)'),
-                      ),
-                    ),
+                    child: AbsorbPointer(child: TextField(controller: timeCtrl, decoration: _bubbleDecoration('Time (HH:MM)'))),
                   ),
-
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
 
                   // Difficulty dropdown
                   DropdownButtonFormField<int>(
                     value: selectedDifficulty,
-                    decoration: const InputDecoration(labelText: 'Difficulty'),
+                    decoration: _bubbleDecoration('Difficulty (1–5)'),
                     items: List.generate(5, (i) => DropdownMenuItem(value: i + 1, child: Text('Level ${i + 1}'))),
                     onChanged: (v) => setDialogState(() => selectedDifficulty = v),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
 
                   // Recurring
                   DropdownButtonFormField<bool>(
                     value: selectedRecurring,
-                    decoration: const InputDecoration(labelText: 'Recurring'),
+                    decoration: _bubbleDecoration('Recurring'),
                     items: const [DropdownMenuItem(value: true, child: Text('Yes')), DropdownMenuItem(value: false, child: Text('No'))],
                     onChanged: (v) => setDialogState(() => selectedRecurring = v),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
 
-                  // Type of class
+                  // Type of Class
                   DropdownButtonFormField<int>(
                     value: selectedClassType,
-                    decoration: const InputDecoration(labelText: 'Type of Class'),
+                    decoration: _bubbleDecoration('Type of Class'),
                     items: const [
                       DropdownMenuItem(value: 1, child: Text('TaeKwonDo')),
                       DropdownMenuItem(value: 2, child: Text('Hapkido')),
@@ -289,69 +297,77 @@ class _EditClassPageState extends State<EditClassPage> {
                     ],
                     onChanged: (v) => setDialogState(() => selectedClassType = v),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
 
-                  // Goal selection
+                  // Goal Dropdown
                   DropdownButtonFormField<dynamic>(
-                    value: goalValue,
-                    decoration: const InputDecoration(labelText: 'Goal'),
-                    items: uniqueGoals.map((g) => DropdownMenuItem(value: g['id'], child: Text('${g['title']} (${g['required_sessions'] ?? 0} sessions)'))).toList(),
+                    value: selectedGoal,
+                    decoration: _bubbleDecoration('Goal'),
+                    items: dialogGoals.map((g) => DropdownMenuItem(value: g['id'], child: Text('${g['title']} (${g['required_sessions'] ?? 0} sessions)'))).toList(),
                     onChanged: (v) => setDialogState(() => selectedGoal = v),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 30),
 
-                  // Registered users raw JSON
-                  TextField(controller: registeredCtrl, decoration: const InputDecoration(labelText: 'Registered Users (JSON)'), maxLines: 3),
+                  // Registered Users
+                  TextField(controller: registeredCtrl, decoration: _bubbleDecoration('Registered Users (JSON)'), maxLines: 3),
+                  const SizedBox(height: 30),
+
+                  // Save button (full width like Create page)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              if (nameCtrl.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill out all required fields')));
+                                return;
+                              }
+
+                              setDialogState(() => saving = true);
+
+                              final payload = <String, dynamic>{
+                                'class_name': nameCtrl.text.trim(),
+                                'coach_assigned': coachCtrl.text.trim(),
+                                'date': dateCtrl.text.trim(),
+                                'time': timeCtrl.text.trim(),
+                              };
+                              if (selectedDifficulty != null) payload['difficulty'] = selectedDifficulty;
+                              if (selectedClassType != null) payload['type_of_class'] = selectedClassType;
+                              if (selectedRecurring != null) payload['reccuring'] = selectedRecurring;
+
+                              if (registeredCtrl.text.trim().isNotEmpty) {
+                                try {
+                                  payload['registered_users'] = jsonDecode(registeredCtrl.text.trim());
+                                } catch (_) {
+                                  payload['registered_users'] = registeredCtrl.text.trim();
+                                }
+                              }
+
+                              final ok = await _saveClassEdits(id, payload);
+                              if (ok && selectedGoal != null) {
+                                try {
+                                  await _supabase.from('class_goal_links').delete().eq('class_id', id);
+                                } catch (_) {}
+                                try {
+                                  await _supabase.from('class_goal_links').insert({'class_id': id, 'goal_id': int.tryParse(selectedGoal.toString()) ?? selectedGoal});
+                                } catch (_) {}
+                              }
+
+                              setDialogState(() => saving = false);
+                              if (ok) Navigator.of(context).pop();
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryBlue,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save Class', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(onPressed: saving ? null : () => Navigator.of(context).pop(), child: const Text('Cancel')),
-              ElevatedButton(
-                onPressed: saving
-                    ? null
-                    : () async {
-                        if (nameCtrl.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a class name')));
-                          return;
-                        }
-                        setDialogState(() => saving = true);
-
-                        final payload = <String, dynamic>{
-                          'class_name': nameCtrl.text.trim(),
-                          'coach_assigned': coachCtrl.text.trim(),
-                          'date': dateCtrl.text.trim(),
-                          'time': timeCtrl.text.trim(),
-                        };
-                        if (selectedDifficulty != null) payload['difficulty'] = selectedDifficulty;
-                        if (selectedClassType != null) payload['type_of_class'] = selectedClassType;
-                        if (selectedRecurring != null) payload['reccuring'] = selectedRecurring;
-
-                        if (registeredCtrl.text.trim().isNotEmpty) {
-                          try {
-                            payload['registered_users'] = jsonDecode(registeredCtrl.text.trim());
-                          } catch (_) {
-                            payload['registered_users'] = registeredCtrl.text.trim();
-                          }
-                        }
-
-                        final ok = await _saveClassEdits(id, payload);
-                        if (ok && selectedGoal != null) {
-                          try {
-                            // remove existing links for this class then insert the selected goal
-                            await _supabase.from('class_goal_links').delete().eq('class_id', id);
-                          } catch (_) {}
-                          try {
-                            await _supabase.from('class_goal_links').insert({'class_id': id, 'goal_id': int.tryParse(selectedGoal.toString()) ?? selectedGoal});
-                          } catch (_) {}
-                        }
-
-                        setDialogState(() => saving = false);
-                        if (ok) Navigator.of(context).pop();
-                      },
-                child: saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
-              ),
-            ],
           );
         });
       },
