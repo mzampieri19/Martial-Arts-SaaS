@@ -20,7 +20,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
   // Show a progress bar for each goal indicating how many classes have been completed toward that goal.
 
   @override
-  void initState() {
+  void initState() { // Get the info on init
     super.initState();
     _loadGoalsOnInit();
   }
@@ -28,32 +28,54 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
   // Helper to load classes and goals during init
   Future<void> _loadGoalsOnInit() async {
     try {
-      final classes = await _getRegisteredClasses();
-      // preload user progress data (completions + attendance counts)
-      await _loadUserProgressData();
-      await _getGoalsPerClass(classes);
+      final classes = await _getRegisteredClasses(); // Creates a list of classes
+      await _loadUserProgressData(); // preload user progress data (completions + attendance counts)
+      await _getGoalsPerClass(classes); // Fetch goals for each class and cache advancement values
+      await _getAdvancementPerGoal(classes); // Fetch advancement per goal
     } catch (e) {
-      // ignore for now
+      print('Error loading goals on init: $e');
     }
   }
 
-  // Cached user progress state to avoid per-goal RPCs
-  // Map of goal_id -> progress (number of classes completed for that goal)
+  // Cached user progress state
+  // Map of goal_id -> progress (number of classes completed for that goal, for the user)
   final Map<int, int> _goalProgress = <int, int>{};
+  // Map of class_id -> attendance count (number of times the user attended the class)
   final Map<int, int> _attendanceByClass = <int, int>{};
+  // Map of goal_id -> advancement (number of classes completed for that goal, for the user)
+  final Map<int, int> _advancementByGoal = <int, int>{};
   // Cache of per-user per-class marks: key '${goalId}:${classId}' -> true
   final Map<String, bool> _marksCache = <String, bool>{};
 
+  // Method to fetch advancement per goal and cache it
+  Future<void> _getAdvancementPerGoal(List<Map<String, dynamic>> classes) async {
+    // Check if user is logged in
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final res = await Supabase.instance.client.from('goals').select('id, advancement');
+      final goals = List<Map<String, dynamic>>.from(res as List? ?? []);
+      for (final g in goals) {
+        final gid = g['id'];
+        final advRaw = g['advancement'];
+        final advVal = (advRaw is int) ? advRaw : int.tryParse(advRaw?.toString() ?? '') ?? 0;
+        if (gid is int) _advancementByGoal[gid] = advVal;
+      }
+    } catch (e) {
+      print('Error loading advancement data: $e');
+    }
+  }
+
+  // Load user progress data: completed goals + attendance counts + per-class marks
   Future<void> _loadUserProgressData() async {
+    // Check if user is logged in
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
 
     try {
       // Load completed goals + progress
-      final compResp = await Supabase.instance.client
-          .from('user_goal_completions')
-          .select('goal_id, progress')
-          .eq('user_id', userId);
+      final compResp = await Supabase.instance.client.from('user_goal_completions').select('goal_id, progress, advancement').eq('user_id', userId);
       final comps = List<Map<String, dynamic>>.from(compResp as List? ?? []);
       _goalProgress.clear();
       for (final c in comps) {
@@ -62,6 +84,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         if (gid is int) _goalProgress[gid] = (prog is int) ? prog : int.tryParse(prog.toString()) ?? 0;
       }
 
+      // This code here can probably be deleted, im not sure what RPC does, Chat wrote this part but im scared of removing it
       // Load attendance counts via RPC once
       final rpcResp = await Supabase.instance.client.rpc('get_user_attendance_counts', params: {'p_user_id': userId});
       final rows = List<Map<String, dynamic>>.from(rpcResp as List? ?? []);
@@ -74,10 +97,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
       // Load per-class marks
       try {
-        final marksResp = await Supabase.instance.client
-            .from('user_goal_class_marks')
-            .select('goal_id, class_id')
-            .eq('user_id', userId);
+        final marksResp = await Supabase.instance.client.from('user_goal_class_marks').select('goal_id, class_id').eq('user_id', userId);
         final marks = List<Map<String, dynamic>>.from(marksResp as List? ?? []);
         _marksCache.clear();
         for (final m in marks) {
@@ -105,7 +125,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         showBackButton: true,
       ),
       body: FutureBuilder(
-        future: _loadClassesWithGoals(),
+        future: _loadClassesWithGoals(), // Load classes and the goals for the user
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -222,13 +242,13 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                               final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
                               final keyStr = '$goalId:$cid';
                               final checked = _marksCache[keyStr] == true;
-                              final progress = _goalProgress[goalId] ?? 0;
+                              final adv = _advancementByGoal[goalId] ?? 0;
                               return ListTile(
                                 title: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(child: Text(title, style: AppConstants.bodyMd)),
-                                    Text('$progress', style: AppConstants.labelMd),
+                                    Text('Advancement: $adv', style: AppConstants.labelMd),
                                   ],
                                 ),
                                 subtitle: Row(
@@ -257,6 +277,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     );
   }
 
+  // Toggle check mark for goal completion in a class
   Future<void> _toggleMark(int goalId, int classId, bool mark) async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -277,69 +298,35 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         'p_class_id': classId,
         'p_mark': mark,
       });
-      print('RPC toggle_user_goal_mark response: $resp');
 
       // refresh goal progress and marks from DB to ensure canonical state
       await _loadUserProgressData();
     } catch (e) {
-      // Try to show as much info as possible
-      String msg = e.toString();
-      try {
-        // Some Supabase errors include a Map-like body
-        if (e is Map && e.containsKey('message')) msg = e['message'].toString();
-      } catch (_) {}
-      print('RPC toggle_user_goal_mark failed: $msg');
-      // Attempt fallback using direct table operations (best-effort)
       try {
         if (mark) {
           // insert mark (idempotent with unique constraint)
-          await Supabase.instance.client
-              .from('user_goal_class_marks')
-              .insert({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
+          await Supabase.instance.client.from('user_goal_class_marks').insert({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
 
           // try to increment or create user_goal_completions.progress
-          final existing = await Supabase.instance.client
-              .from('user_goal_completions')
-              .select('id, progress')
-              .eq('user_id', userId)
-              .eq('goal_id', goalId)
-              .maybeSingle();
+          final existing = await Supabase.instance.client.from('user_goal_completions').select('id, progress').eq('user_id', userId).eq('goal_id', goalId).maybeSingle();
 
           if (existing != null && (existing as dynamic)['id'] != null) {
             final curr = ((existing as dynamic)['progress'] ?? 0) as int;
-            await Supabase.instance.client
-                .from('user_goal_completions')
-                .update({'progress': curr + 1, 'completed_at': DateTime.now().toUtc().toIso8601String()})
-                .eq('id', (existing as dynamic)['id'])
-                .select();
+            await Supabase.instance.client.from('user_goal_completions').update({'progress': curr + 1, 'completed_at': DateTime.now().toUtc().toIso8601String()}).eq('id', (existing as dynamic)['id']).select();
           } else {
-            await Supabase.instance.client
-                .from('user_goal_completions')
-                .insert({'user_id': userId, 'goal_id': goalId, 'progress': 1, 'completed_at': DateTime.now().toUtc().toIso8601String()});
+            await Supabase.instance.client.from('user_goal_completions').insert({'user_id': userId, 'goal_id': goalId, 'progress': 1, 'completed_at': DateTime.now().toUtc().toIso8601String()});
           }
         } else {
           // remove mark
-          await Supabase.instance.client
-              .from('user_goal_class_marks')
-              .delete()
-              .match({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
+          await Supabase.instance.client.from('user_goal_class_marks').delete().match({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
 
           // decrement progress if row exists
-          final existing = await Supabase.instance.client
-              .from('user_goal_completions')
-              .select('id, progress')
-              .eq('user_id', userId)
-              .eq('goal_id', goalId)
-              .maybeSingle();
+          final existing = await Supabase.instance.client.from('user_goal_completions').select('id, progress').eq('user_id', userId).eq('goal_id', goalId).maybeSingle();
 
           if (existing != null && (existing as dynamic)['id'] != null) {
             final curr = ((existing as dynamic)['progress'] ?? 0) as int;
             final newVal = (curr > 0) ? curr - 1 : 0;
-            await Supabase.instance.client
-                .from('user_goal_completions')
-                .update({'progress': newVal})
-                .eq('id', (existing as dynamic)['id'])
-                .select();
+            await Supabase.instance.client.from('user_goal_completions').update({'progress': newVal}).eq('id', (existing as dynamic)['id']).select();
           }
         }
 
@@ -372,11 +359,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       // Fetch class details
       Map<String, dynamic>? classRow;
       try {
-        classRow = await Supabase.instance.client
-            .from('classes')
-            .select('id, class_name')
-            .eq('id', classId)
-            .maybeSingle();
+        classRow = await Supabase.instance.client.from('classes').select('id, class_name').eq('id', classId).maybeSingle();
       } catch (_) {
         classRow = null;
       }
@@ -404,10 +387,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       // Fetch linked goals in one nested query (returns nested `goals` object/array depending on PostgREST)
       List<Map<String, dynamic>> goalsList = [];
       try {
-        final linksResp = await Supabase.instance.client
-            .from('class_goal_links')
-            .select('goal_id, goals(id, key, title, required_sessions)')
-            .eq('class_id', classId);
+    final linksResp = await Supabase.instance.client.from('class_goal_links').select('goal_id, goals(id, key, title, required_sessions, advancement)').eq('class_id', classId);
 
         final links = List<Map<String, dynamic>>.from(linksResp as List? ?? []);
         for (final l in links) {
@@ -418,15 +398,11 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
             goalResp = Map<String, dynamic>.from(nested.first as Map);
           } else if (nested is Map) {
             goalResp = Map<String, dynamic>.from(nested);
-          } else if (l.containsKey('goal_id')) {
+      } else if (l.containsKey('goal_id')) {
             // fallback: fetch the goal row directly
             try {
-              final g = await Supabase.instance.client
-                  .from('goals')
-                  .select('id, key, title, required_sessions')
-                  .eq('id', l['goal_id'])
-                  .maybeSingle();
-              if (g != null) goalResp = Map<String, dynamic>.from(g as Map);
+        final g = await Supabase.instance.client.from('goals').select('id, key, title, required_sessions, advancement').eq('id', l['goal_id']).maybeSingle();
+        if (g != null) goalResp = Map<String, dynamic>.from(g as Map);
             } catch (_) {}
           }
 
@@ -439,7 +415,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       }
 
       // Debug: how many goals found for this class
-      print('Class $classId linked goals count: ${goalsList.length}');
+      print('Class $classId linked goals count: ${goalsList.length}, advancement ${_advancementByGoal[classId] ?? 0}');
 
       results.add({
         'registration_id': registrationId,
@@ -449,15 +425,12 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         'time': timeFromReg ?? reg['time'],
         'coach_name': coachFromReg ?? reg['coach_assigned'] ?? reg['coach_name'],
         'goals': goalsList,
+        'advancement': _advancementByGoal[classId] ?? 0,
       });
     }
 
     return results;
   }
-
-  // (Old helpers `_fetchGoalMeta` and `_toggleGoalCompletion` removed —
-  // we now use per-class marks + the RPC `toggle_user_goal_mark` and
-  // the `_goalProgress` cache to render progress.)
 
   // Fetch registered classes for the user from Supabase, returns a list of classes
   Future<List<Map<String, dynamic>>> _getRegisteredClasses() async {
@@ -472,43 +445,46 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     }
 
     // Request the nested `classes` row to include schedule/coach fields when available
-    final response = await Supabase.instance.client
-      .from('student_classes')
-      .select('*, classes(id, class_name, date, time, coach_assigned)')
-      .eq('profile_id', userId);
+    final response = await Supabase.instance.client.from('student_classes').select('*, classes(id, class_name, date, time, coach_assigned)').eq('profile_id', userId);
 
     final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
     return classes;
   }
 
-  // Fetch goals for each class and process them
-  Future<Map<String, dynamic>?> _getGoalsPerClass(List<Map<String, dynamic>> classes) async {
-  // Fetch goals for each class from the supabase
-    for (var class_index in classes) {
-      final classId = class_index['id'];
-      final response = await Supabase.instance.client
-        .from('class_goal_links')
-        .select()
-        .eq('class_id', classId); // Assuming classId is available
+  // Fetch goals for each class and cache advancement values
+  Future<void> _getGoalsPerClass(List<Map<String, dynamic>> classes) async {
+    for (final cls in classes) {
+      final classId = cls['id'];
+      try {
+        final linksResp = await Supabase.instance.client.from('class_goal_links').select('goal_id, goals(id, key, title, required_sessions, advancement)').eq('class_id', classId);
 
-      final goals = List<Map<String, dynamic>>.from(response as List? ?? []);
-      // Process goals for the class
-      for (var goal in goals) {
-        final goalId = goal['goal_id'];
-        // Fetch goal details if needed
-        final goalDetails = await Supabase.instance.client
-          .from('goals')
-          .select()
-          .eq('id', goalId)
-          .maybeSingle();
+        final links = List<Map<String, dynamic>>.from(linksResp as List? ?? []);
+        for (final l in links) {
+          dynamic nested = l['goals'];
+          Map<String, dynamic>? goalResp;
+          if (nested is List && nested.isNotEmpty) {
+            goalResp = Map<String, dynamic>.from(nested.first as Map);
+          } else if (nested is Map) {
+            goalResp = Map<String, dynamic>.from(nested);
+          } else if (l.containsKey('goal_id')) {
+            try {
+              final g = await Supabase.instance.client.from('goals').select('id, key, title, required_sessions, advancement').eq('id', l['goal_id']).maybeSingle();
+              if (g != null) goalResp = Map<String, dynamic>.from(g as Map);
+            } catch (_) {}
+          }
 
-        // Store goals details as needed
-        if (goalDetails != null) {
-          print('Class ID: $classId, Goal: ${goalDetails['title']}');
+          if (goalResp != null) {
+            try {
+              final advRaw = goalResp['advancement'];
+              final advVal = (advRaw is int) ? advRaw : int.tryParse(advRaw?.toString() ?? '') ?? 0;
+              final gidParsed = goalResp['id'];
+              if (gidParsed is int) _advancementByGoal[gidParsed] = advVal;
+            } catch (_) {}
+          }
         }
-        return goalDetails;
+      } catch (e) {
+        print('Error fetching goals for class $classId: $e');
       }
     }
-    return null;
   }
 }
