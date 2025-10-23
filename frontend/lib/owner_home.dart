@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
+import 'package:frontend/edit_class.dart';
 import 'profile.dart';
 import 'announcements.dart';
 import 'calendar.dart';
@@ -313,6 +314,17 @@ class OwnerHomeContentPage extends StatelessWidget {
             );
           },
           child: Text('Make a Class'),
+        ),
+        SizedBox(height: AppConstants.spaceMd),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => EditClassPage(),
+              ),
+            );
+          },
+          child: Text('Edit an existing Class'),
         ),
       ],
     );
