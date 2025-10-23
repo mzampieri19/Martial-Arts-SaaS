@@ -3,6 +3,7 @@ import 'package:bottom_picker/bottom_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// Colors for UI
 class AppColors {
   static const primaryBlue = Color(0xFFDD886C);
   static const linkBlue = Color(0xFFC96E6E);
@@ -25,6 +26,7 @@ class _EditClassPageState extends State<EditClassPage> {
   late List<Map<String, dynamic>> _coaches = [];
 
   void initState() {
+    // On init, load all classes and coaches
     super.initState();
     _loadFuture = _loadAllClasses();
     _loadCoaches();
@@ -71,7 +73,6 @@ class _EditClassPageState extends State<EditClassPage> {
   }
 
   // UI for editing classes would go here
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,7 +89,6 @@ class _EditClassPageState extends State<EditClassPage> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } 
-
           return ListView.builder(
             itemCount: _classes.length,
             itemBuilder: (context, index) {
@@ -100,9 +100,6 @@ class _EditClassPageState extends State<EditClassPage> {
               );
             },
           );
-
-          
-          
         }
       )
     );
@@ -111,13 +108,12 @@ class _EditClassPageState extends State<EditClassPage> {
   // Show an edit dialog for a class with fields prefilled from classItem
   Future<void> _showEditDialog(Map<String, dynamic> classItem) async {
     final id = classItem['id'];
-
     // reuse controllers similar to create page
     final TextEditingController nameCtrl = TextEditingController(text: classItem['class_name']?.toString() ?? '');
     final TextEditingController coachCtrl = TextEditingController(text: classItem['coach_assigned']?.toString() ?? '');
     final TextEditingController dateCtrl = TextEditingController(text: classItem['date']?.toString() ?? '');
     final TextEditingController timeCtrl = TextEditingController(text: classItem['time']?.toString() ?? '');
-  // difficultyCtrl not needed; use selectedDifficulty instead
+    // difficultyCtrl not needed; use selectedDifficulty instead
     final TextEditingController registeredCtrl = TextEditingController(text: jsonEncode(classItem['registered_users'] ?? {}));
     int? selectedDifficulty = classItem['difficulty'] is int ? classItem['difficulty'] as int : null;
     int? selectedClassType = classItem['type_of_class'] is int ? classItem['type_of_class'] as int : null;
@@ -134,7 +130,8 @@ class _EditClassPageState extends State<EditClassPage> {
     } catch (_) {}
 
     try {
-      final cResp = await _supabase.from('profiles').select('username, Role');
+      // only load profiles with Role = 'coach' (case-insensitive)
+      final cResp = await _supabase.from('profiles').select('username, Role').ilike('Role', 'coach');
       dialogCoaches = List<Map<String, dynamic>>.from(cResp as List? ?? []);
     } catch (_) {}
 
@@ -144,7 +141,6 @@ class _EditClassPageState extends State<EditClassPage> {
       final links = List<Map<String, dynamic>>.from(linkResp as List? ?? []);
       if (links.isNotEmpty) selectedGoal = links.first['goal_id'];
     } catch (_) {}
-
 
     InputDecoration _bubbleDecoration(String label) => InputDecoration(
         labelText: label,
