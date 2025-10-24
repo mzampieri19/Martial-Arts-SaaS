@@ -229,26 +229,37 @@ class _CalendarPageState extends State<CalendarPage> {
                           final classTime = item['time'] ?? '';
                           final classId = item['id'];
 
-                          return Slidable(
-                            key: ValueKey(classId),
-                            endActionPane: ActionPane(
-                              motion: const ScrollMotion(),
-                              children: [
-                                SlidableAction(
-                                  onPressed: (_) async => await registerForClass(classId),
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  icon: Icons.check_circle,
-                                  label: 'Register',
-                                ),
-                              ],
-                            ),
-                            child: ListTile(
-                              title: Text(
-                                className,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Slidable(
+                              key: ValueKey(classId),
+                              endActionPane: ActionPane(
+                                motion: const ScrollMotion(),
+                                children: [
+                                  SlidableAction(
+                                    onPressed: (_) async => await registerForClass(classId),
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    icon: Icons.check_circle,
+                                    label: 'Register',
+                                  ),
+                                ],
                               ),
-                              subtitle: Text('Date: $classDate\nTime: $classTime'),
+                              child: Card(
+                                margin: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 2,
+                                clipBehavior: Clip.antiAlias,
+                                child: ListTile(
+                                  title: Text(
+                                    className,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Text('Date: $classDate\nTime: $classTime'),
+                                ),
+                              ),
                             ),
                           );
                         },
