@@ -43,6 +43,7 @@ dependencies:
   supabase_flutter: ^2.0.0
 
   flutter_slidable: ^4.0.3
+  table_calendar: ^3.1.2
 
 dev_dependencies:
   flutter_test:
