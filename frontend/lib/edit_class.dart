@@ -190,15 +190,28 @@ class _EditClassPageState extends State<EditClassPage> {
                       final username = profile?['username']?.toString() ?? '';
 
                       if (role == 'owner') {
+                        // dedupe coach usernames to avoid duplicate DropdownMenuItems
+                        final seen = <String>{};
+                        final uniqueCoachNames = <String>[];
+                        for (final c in coaches) {
+                          final name = c['username']?.toString() ?? '';
+                          if (name.isEmpty) continue;
+                          if (seen.contains(name)) continue;
+                          seen.add(name);
+                          uniqueCoachNames.add(name);
+                        }
+
+                        final coachValue = uniqueCoachNames.contains(coachCtrl.text) ? coachCtrl.text : null;
+
                         return Column(
                           children: [
                             DropdownButtonFormField<String>(
-                              value: coachCtrl.text.isEmpty ? null : coachCtrl.text,
+                              value: coachValue,
                               decoration: _bubbleDecoration('Coach Assigned'),
-                              items: coaches
-                                .map((c) => DropdownMenuItem<String>(
-                                  value: c['username']?.toString() ?? '',
-                                  child: Text(c['username']?.toString() ?? ''),
+                              items: uniqueCoachNames
+                                .map((name) => DropdownMenuItem<String>(
+                                  value: name,
+                                  child: Text(name),
                                 ))
                                 .toList(),
                               onChanged: (v) {
