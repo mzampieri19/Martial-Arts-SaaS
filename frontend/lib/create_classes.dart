@@ -42,11 +42,28 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
     4: 'Karate',
     5: 'Other'
   };
+  
+  late List<Map<String, dynamic>> _coaches;
 
   @override
   void initState() {
     super.initState();
     _loadGoals();
+    _loadCoaches();
+  }
+
+  // fetches list of coaches from Supabase
+  Future<void> _loadCoaches() async {
+    try {
+      final resp = await _supabase
+          .from('profiles')
+          .select('username, Role');
+      final list = List<Map<String, dynamic>>.from(resp as List? ?? []);
+      // You can use this list to populate a dropdown or autocomplete for coach selection
+      setState(() {
+        _coaches = list;
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadGoals() async {
@@ -180,12 +197,90 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
               ),
               const SizedBox(height: 20),
 
-              // Coach Assigned
-              TextField(
-                controller: _coachAssignedController,
-                decoration: _bubbleDecoration('Coach Assigned'),
-              ),
-              const SizedBox(height: 20),
+                // Coach Assigned (owner -> choose from dropdown of coaches; coach -> auto-fill themselves)
+                FutureBuilder<Map<String, dynamic>?>(
+                future: () async {
+                  final user = _supabase.auth.currentUser;
+                  if (user == null) return null;
+
+                  // fetch current user's profile
+                  final profileResp = await _supabase
+                    .from('profiles')
+                    .select('id, username, Role')
+                    .eq('id', user.id)
+                    .limit(1);
+                  final profileList = List<Map<String, dynamic>>.from(profileResp as List? ?? []);
+                  final profile = profileList.isNotEmpty ? profileList.first : null;
+
+                  // if owner, also fetch all coaches
+                  List<Map<String, dynamic>> coaches = [];
+                  final role = profile?['Role']?.toString().toLowerCase();
+                  if (role == 'owner') {
+                  final coachesResp = await _supabase
+                    .from('profiles')
+                    .select('username, Role')
+                    .ilike('Role', 'coach'); // case-insensitive match
+                  coaches = List<Map<String, dynamic>>.from(coachesResp as List? ?? []);
+                  }
+
+                  return {
+                  'profile': profile,
+                  'coaches': coaches,
+                  };
+                }(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                  return const SizedBox(
+                    height: 56,
+                    child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))));
+                  }
+
+                  final data = snapshot.data;
+                  final profile = data?['profile'] as Map<String, dynamic>?;
+                  final coaches = List<Map<String, dynamic>>.from(data?['coaches'] as List? ?? []);
+                  final role = profile?['Role']?.toString().toLowerCase();
+                  final username = profile?['username']?.toString() ?? '';
+
+                  if (role == 'owner') {
+                  return Column(
+                    children: [
+                    DropdownButtonFormField<String>(
+                      value: _coachAssignedController.text.isEmpty ? null : _coachAssignedController.text,
+                      decoration: _bubbleDecoration('Coach Assigned'),
+                      items: coaches
+                        .map((c) => DropdownMenuItem<String>(
+                          value: c['username']?.toString() ?? '',
+                          child: Text(c['username']?.toString() ?? ''),
+                          ))
+                        .toList(),
+                      onChanged: (v) {
+                      setState(() {
+                        _coachAssignedController.text = v ?? '';
+                      });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    ],
+                  );
+                  } else {
+                  // coach or fallback: show read-only field with their username
+                  if (_coachAssignedController.text.isEmpty && username.isNotEmpty) {
+                    // set controller once to avoid interfering with user edits (readOnly)
+                    _coachAssignedController.text = username;
+                  }
+                  return Column(
+                    children: [
+                    TextField(
+                      controller: _coachAssignedController,
+                      readOnly: true,
+                      decoration: _bubbleDecoration('Coach Assigned'),
+                    ),
+                    const SizedBox(height: 20),
+                    ],
+                  );
+                  }
+                },
+                ),
 
               // Date Picker
               GestureDetector(
