@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/home.dart';
+import 'package:frontend/api_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -177,16 +178,11 @@ class _SignUpPageState extends State<SignUpPage> {
                       return;
                     }
 
-                    final supabase = Supabase.instance.client;
-
                     try {
-                      // 1) Create auth user
-                      final signUpRes = await supabase.auth.signUp(
-                        email: email,
-                        password: password,
-                      );
-
-                      final user = signUpRes.user;
+                      // Use API service to signup
+                      final response = await ApiService.signup(email, password, username);
+                      
+                      final user = response['user'];
                       if (user == null) {
                         // Email confirmation likely enabled
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -195,40 +191,27 @@ class _SignUpPageState extends State<SignUpPage> {
                         return;
                       }
 
-                      // 2) Set username on profiles (unique)
+                      // Also create Supabase session for consistent auth
                       try {
-                        await supabase
-                            .from('profiles')
-                            .upsert({'id': user.id, 'username': username});
-                      } on PostgrestException catch (e) {
-                        // Log exact DB error for debugging
-                        // ignore: avoid_print
-                        print('PostgrestException ${e.code}: ${e.message}');
-                        // Unique violation code is typically 23505
-                        if (e.code == '23505') {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Username is taken. Choose another.')),
-                          );
-                          return;
-                        }
-                        // Show the DB error to the user for other cases
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Database error: ${e.message}')),
+                        await Supabase.instance.client.auth.signUp(
+                          email: email,
+                          password: password,
                         );
-                        return;
+                      } catch (_) {
+                        // Non-fatal: API already created user
                       }
 
-                      // 3) Optional avatar upload to Storage (store path regardless of public/private)
-                      if (_selectedImage != null) {
-                        final String filePath = '${user.id}/profile.jpg';
+                      // 3) Optional avatar upload to Storage (keep this with Supabase for now)
+                      if (_selectedImage != null && user['id'] != null) {
+                        final String filePath = '${user['id']}/profile.jpg';
                         try {
+                          final supabase = Supabase.instance.client;
                           await supabase.storage
                               .from('avatars')
                               .upload(filePath, _selectedImage!, fileOptions: const FileOptions(upsert: true));
 
-                          await supabase
-                              .from('profiles')
-                              .upsert({'id': user.id, 'avatar_url': filePath});
+                          // Update avatar URL via API
+                          await ApiService.updateProfile(user['id'], {'avatar_url': filePath});
                         } catch (_) {
                           // Non-fatal: proceed without blocking signup
                         }
@@ -236,18 +219,20 @@ class _SignUpPageState extends State<SignUpPage> {
 
                       // 4) Navigate on success
                       _navigateToHomePage();
-                    } on AuthException catch (e) {
-                      // ignore: avoid_print
-                      print('AuthException: ${e.message}');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.message)),
-                      );
                     } catch (e) {
                       // ignore: avoid_print
-                      print('Unexpected error during sign up: $e');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Sign up failed. Try again.')),
-                      );
+                      print('Error during sign up: $e');
+                      
+                      final errorMsg = e.toString();
+                      if (errorMsg.contains('username') || errorMsg.contains('23505')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Username is taken. Choose another.')),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Sign up failed: ${e.toString()}')),
+                        );
+                      }
                     }
                   },
                   child: const Text(

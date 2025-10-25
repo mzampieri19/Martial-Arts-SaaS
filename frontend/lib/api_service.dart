@@ -177,6 +177,13 @@ class ApiService {
     return get('/profiles/$id');
   }
 
+  static Future<Map<String, dynamic>> updateProfile(
+    String id,
+    Map<String, dynamic> updates,
+  ) async {
+    return put('/profiles/$id', updates);
+  }
+
   // User progress endpoints
   static Future<Map<String, dynamic>> getUserProgress(String userId) async {
     return get('/user-progress/$userId');

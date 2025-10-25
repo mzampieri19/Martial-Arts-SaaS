@@ -220,6 +220,22 @@ app.get('/api/profiles/:id', async (req, res) => {
   }
 });
 
+app.put('/api/profiles/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // User progress routes
 app.get('/api/user-progress/:userId', async (req, res) => {
   try {
