@@ -106,8 +106,8 @@ class _EditClassPageState extends State<EditClassPage> {
 
     // attempt to load existing class_goal_links selection
     try {
-      final linkResp = await _supabase.from('class_goal_links').select('goal_id').eq('class_id', id);
-      final links = List<Map<String, dynamic>>.from(linkResp as List? ?? []);
+      final linkResp = await ApiService.getClassGoalLinks(id.toString());
+      final links = List<Map<String, dynamic>>.from(linkResp);
       if (links.isNotEmpty) selectedGoal = links.first['goal_id'];
     } catch (_) {}
 
