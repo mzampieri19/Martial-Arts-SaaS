@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bottom_picker/bottom_picker.dart';
 import 'package:bottom_picker/resources/time.dart';
+import 'package:frontend/api_service.dart';
 
 class AppColors {
   static const primaryBlue = Color(0xFFDD886C);
@@ -19,7 +20,6 @@ class CreateClassesPage extends StatefulWidget {
 }
 
 class _CreateClassesPageState extends State<CreateClassesPage> {
-  final SupabaseClient _supabase = Supabase.instance.client;
 
   final TextEditingController _classNameController = TextEditingController();
   final TextEditingController _coachAssignedController = TextEditingController();
@@ -52,28 +52,21 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
     _loadCoaches();
   }
 
-  // fetches list of coaches from Supabase
+  // fetches list of coaches from API
   Future<void> _loadCoaches() async {
     try {
-      final resp = await _supabase
-          .from('profiles')
-          .select('username, Role');
-      final list = List<Map<String, dynamic>>.from(resp as List? ?? []);
+      final list = await ApiService.getCoaches();
       // You can use this list to populate a dropdown or autocomplete for coach selection
       setState(() {
-        _coaches = list;
+        _coaches = List<Map<String, dynamic>>.from(list);
       });
     } catch (_) {}
   }
 
   Future<void> _loadGoals() async {
     try {
-      final resp = await _supabase
-          .from('goals')
-          .select('id, key, title, required_sessions')
-          .order('title', ascending: true);
-      final list = List<Map<String, dynamic>>.from(resp as List? ?? []);
-      setState(() => _goals = list);
+      final list = await ApiService.getGoals();
+      setState(() => _goals = List<Map<String, dynamic>>.from(list));
     } catch (_) {}
   }
 
@@ -109,7 +102,7 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
     }
 
     try {
-      final insertResp = await _supabase.from('classes').insert({
+      final classData = {
         'class_name': className,
         'coach_assigned': coachAssigned,
         'date': date,
@@ -118,18 +111,11 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
         'reccuring': recurring,
         'type_of_class': typeOfClass,
         'registered_users': registeredUsers,
-      }).select('id');
+        if (_selectedGoalId != null) 'goal_id': _selectedGoalId,
+      };
 
-      final createdRows = List<Map<String, dynamic>>.from(insertResp as List? ?? []);
-      final newClassId = createdRows.isNotEmpty ? createdRows.first['id'] : null;
-
-      if (_selectedGoalId != null && newClassId != null) {
-        final parsedGoalId = int.tryParse(_selectedGoalId.toString()) ?? _selectedGoalId;
-        await _supabase.from('class_goal_links').insert({
-          'class_id': newClassId,
-          'goal_id': parsedGoalId,
-        });
-      }
+      final insertResp = await ApiService.createClass(classData);
+      final newClassId = insertResp['id'];
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Class created successfully')),
@@ -200,27 +186,17 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
                 // Coach Assigned (owner -> choose from dropdown of coaches; coach -> auto-fill themselves)
                 FutureBuilder<Map<String, dynamic>?>(
                 future: () async {
-                  final user = _supabase.auth.currentUser;
+                  final user = Supabase.instance.client.auth.currentUser;
                   if (user == null) return null;
 
                   // fetch current user's profile
-                  final profileResp = await _supabase
-                    .from('profiles')
-                    .select('id, username, Role')
-                    .eq('id', user.id)
-                    .limit(1);
-                  final profileList = List<Map<String, dynamic>>.from(profileResp as List? ?? []);
-                  final profile = profileList.isNotEmpty ? profileList.first : null;
-
+                  final profile = await ApiService.getProfile(user.id);
+                  
                   // if owner, also fetch all coaches
                   List<Map<String, dynamic>> coaches = [];
-                  final role = profile?['Role']?.toString().toLowerCase();
+                  final role = profile['Role']?.toString().toLowerCase();
                   if (role == 'owner') {
-                  final coachesResp = await _supabase
-                    .from('profiles')
-                    .select('username, Role')
-                    .ilike('Role', 'coach'); // case-insensitive match
-                  coaches = List<Map<String, dynamic>>.from(coachesResp as List? ?? []);
+                    coaches = await ApiService.getCoaches();
                   }
 
                   return {

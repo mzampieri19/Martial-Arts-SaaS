@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/coach_home.dart';
 import 'package:frontend/home.dart';
 import 'package:frontend/owner_home.dart';
+import 'package:frontend/api_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppColors {
@@ -22,8 +23,6 @@ class _LogInPageState extends State<LogInPage> {
   bool _obscure = true; // password visibility toggle
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
-  final SupabaseClient _supabase = Supabase.instance.client;
 
   @override
   void dispose() {
@@ -60,14 +59,13 @@ class _LogInPageState extends State<LogInPage> {
     }
 
     try {
-      // sign in
-      final AuthResponse res = await _supabase.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
+      // Use API service to login
+      final response = await ApiService.login(email, password);
+      
+      final userData = response['user'];
+      final userRole = response['role'] as String? ?? 'STUDENT';
 
-      final user = res.user;
-      if (user == null) {
+      if (userData == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login failed. Please try again.')),
@@ -75,14 +73,11 @@ class _LogInPageState extends State<LogInPage> {
         return;
       }
 
-      // fetch role from profiles table
-      final profile = await _supabase
-          .from('profiles')
-          .select('Role') 
-          .eq('id', user.id)
-          .maybeSingle();
-
-      final String userRole = (profile?['Role'] as String?) ?? 'STUDENT'; // default to student if no role
+      // Also sign in with Supabase for session management
+      await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
 
       if (!mounted) return; // safety check -> widget still in tree (still open)
 
@@ -105,15 +100,10 @@ class _LogInPageState extends State<LogInPage> {
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
       }
-    } on AuthException catch (e) {
-      if (!mounted) return; 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Login error: ${e.message}')),
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unexpected error: $e')),
+        SnackBar(content: Text('Login error: ${e.toString()}')),
       );
     }
   }
