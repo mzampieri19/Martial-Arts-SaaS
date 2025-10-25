@@ -204,6 +204,20 @@ app.get('/api/goals', async (req, res) => {
   }
 });
 
+app.get('/api/class-goal-links/:classId', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('class_goal_links')
+      .select('goal_id, goals(id, key, title, required_sessions, advancement)')
+      .eq('class_id', req.params.classId);
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 // Profile routes
 app.get('/api/profiles/:id', async (req, res) => {
   try {

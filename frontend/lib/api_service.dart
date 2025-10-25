@@ -172,6 +172,20 @@ class ApiService {
     return getList('/goals');
   }
 
+  static Future<List<dynamic>> getClassGoalLinks(String classId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/class-goal-links/$classId'));
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as List<dynamic>;
+      } else {
+        throw Exception('Failed to load class goal links: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
   // Profile endpoints
   static Future<Map<String, dynamic>> getProfile(String id) async {
     return get('/profiles/$id');

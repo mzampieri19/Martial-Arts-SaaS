@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:frontend/api_service.dart';
 
 import 'profile_page.dart';
 class ProfilePage extends StatelessWidget {
@@ -18,14 +19,10 @@ class ProfilePage extends StatelessWidget {
     }
 
     try {
-      final profile = await supabase
-          .from('profiles')
-          .select('username, avatar_url, Role')
-          .eq('id', user.id)
-          .maybeSingle();
+      final profile = await ApiService.getProfile(user.id);
 
-      final username = profile?['username'] as String?;
-      final avatarPath = profile?['avatar_url'] as String?;
+      final username = profile['username'] as String?;
+      final avatarPath = profile['avatar_url'] as String?;
       final avatarUrl = (avatarPath != null && avatarPath.isNotEmpty)
           ? supabase.storage.from('avatars').getPublicUrl(avatarPath)
           : 'https://i.postimg.cc/cCsYDjvj/user-2.png';
@@ -46,15 +43,10 @@ class ProfilePage extends StatelessWidget {
           ),
         ),
       );
-    } on PostgrestException catch (error) {
+    } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to load profile: ${error.message}')),
-      );
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to load profile right now.')),
+        SnackBar(content: Text('Unable to load profile: ${error.toString()}')),
       );
     }
   }
@@ -62,11 +54,15 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
-      future: Supabase.instance.client
-          .from('profiles')
-          .select('username')
-          .eq('id', Supabase.instance.client.auth.currentUser?.id ?? '')
-          .maybeSingle(),
+      future: () async {
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId == null) return null;
+        try {
+          return await ApiService.getProfile(userId);
+        } catch (_) {
+          return null;
+        }
+      }(),
       builder: (context, snapshot) {
         final username = (snapshot.data?['username'] as String?)?.trim();
         final appBarTitle = username?.isNotEmpty == true

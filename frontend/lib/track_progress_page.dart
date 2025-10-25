@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:frontend/api_service.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
 
@@ -54,8 +55,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     if (userId == null) return;
 
     try {
-      final res = await Supabase.instance.client.from('goals').select('id, advancement');
-      final goals = List<Map<String, dynamic>>.from(res as List? ?? []);
+      final goals = await ApiService.getGoals();
       for (final g in goals) {
         final gid = g['id'];
         final advRaw = g['advancement'];
@@ -74,9 +74,11 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     if (userId == null) return;
 
     try {
+      // Load all progress data via API
+      final progressData = await ApiService.getUserProgress(userId);
+      
       // Load completed goals + progress
-      final compResp = await Supabase.instance.client.from('user_goal_completions').select('goal_id, progress, advancement').eq('user_id', userId);
-      final comps = List<Map<String, dynamic>>.from(compResp as List? ?? []);
+      final comps = progressData['goalProgress'] as List? ?? [];
       _goalProgress.clear();
       for (final c in comps) {
         final gid = c['goal_id'];
@@ -84,10 +86,8 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
         if (gid is int) _goalProgress[gid] = (prog is int) ? prog : int.tryParse(prog.toString()) ?? 0;
       }
 
-      // This code here can probably be deleted, im not sure what RPC does, Chat wrote this part but im scared of removing it
       // Load attendance counts via RPC once
-      final rpcResp = await Supabase.instance.client.rpc('get_user_attendance_counts', params: {'p_user_id': userId});
-      final rows = List<Map<String, dynamic>>.from(rpcResp as List? ?? []);
+      final rows = progressData['attendance'] as List? ?? [];
       _attendanceByClass.clear();
       for (final r in rows) {
         final cid = r['class_id'];
@@ -96,17 +96,12 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       }
 
       // Load per-class marks
-      try {
-        final marksResp = await Supabase.instance.client.from('user_goal_class_marks').select('goal_id, class_id').eq('user_id', userId);
-        final marks = List<Map<String, dynamic>>.from(marksResp as List? ?? []);
-        _marksCache.clear();
-        for (final m in marks) {
-          final gid = m['goal_id'];
-          final cid = m['class_id'];
-          if (gid is int && cid is int) _marksCache['$gid:$cid'] = true;
-        }
-      } catch (e) {
-        print('Error loading marks: $e');
+      final marks = progressData['marks'] as List? ?? [];
+      _marksCache.clear();
+      for (final m in marks) {
+        final gid = m['goal_id'];
+        final cid = m['class_id'];
+        if (gid is int && cid is int) _marksCache['$gid:$cid'] = true;
       }
 
       // trigger UI update
@@ -284,6 +279,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
     // optimistic update
     final key = '$goalId:$classId';
+    final oldMarkValue = _marksCache[key] ?? false;
     // update mark cache optimistically
     _marksCache[key] = mark;
     // also update goal progress optimistically so the UI feels responsive
@@ -292,53 +288,20 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     setState(() {});
 
     try {
-      final resp = await Supabase.instance.client.rpc('toggle_user_goal_mark', params: {
-        'p_user_id': userId,
-        'p_goal_id': goalId,
-        'p_class_id': classId,
-        'p_mark': mark,
-      });
+      await ApiService.toggleMark(userId, goalId, classId, mark);
 
       // refresh goal progress and marks from DB to ensure canonical state
       await _loadUserProgressData();
     } catch (e) {
-      try {
-        if (mark) {
-          // insert mark (idempotent with unique constraint)
-          await Supabase.instance.client.from('user_goal_class_marks').insert({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
-
-          // try to increment or create user_goal_completions.progress
-          final existing = await Supabase.instance.client.from('user_goal_completions').select('id, progress').eq('user_id', userId).eq('goal_id', goalId).maybeSingle();
-
-          if (existing != null && (existing as dynamic)['id'] != null) {
-            final curr = ((existing as dynamic)['progress'] ?? 0) as int;
-            await Supabase.instance.client.from('user_goal_completions').update({'progress': curr + 1, 'completed_at': DateTime.now().toUtc().toIso8601String()}).eq('id', (existing as dynamic)['id']).select();
-          } else {
-            await Supabase.instance.client.from('user_goal_completions').insert({'user_id': userId, 'goal_id': goalId, 'progress': 1, 'completed_at': DateTime.now().toUtc().toIso8601String()});
-          }
-        } else {
-          // remove mark
-          await Supabase.instance.client.from('user_goal_class_marks').delete().match({'user_id': userId, 'goal_id': goalId, 'class_id': classId});
-
-          // decrement progress if row exists
-          final existing = await Supabase.instance.client.from('user_goal_completions').select('id, progress').eq('user_id', userId).eq('goal_id', goalId).maybeSingle();
-
-          if (existing != null && (existing as dynamic)['id'] != null) {
-            final curr = ((existing as dynamic)['progress'] ?? 0) as int;
-            final newVal = (curr > 0) ? curr - 1 : 0;
-            await Supabase.instance.client.from('user_goal_completions').update({'progress': newVal}).eq('id', (existing as dynamic)['id']).select();
-          }
-        }
-
-        // reload authoritative state
-        await _loadUserProgressData();
-      } catch (fallbackErr) {
-        print('Fallback DB update failed: $fallbackErr');
-        // revert optimistic change
-        _marksCache[key] = !mark;
-        _goalProgress[goalId] = oldProgress;
-        setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update mark: $e')));
+      print('Failed to toggle mark: $e');
+      // revert optimistic change
+      _marksCache[key] = oldMarkValue;
+      _goalProgress[goalId] = oldProgress;
+      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update mark: ${e.toString()}')),
+        );
       }
     }
   }
@@ -359,7 +322,11 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       // Fetch class details
       Map<String, dynamic>? classRow;
       try {
-        classRow = await Supabase.instance.client.from('classes').select('id, class_name').eq('id', classId).maybeSingle();
+        final allClasses = await ApiService.getClasses();
+        classRow = allClasses.firstWhere(
+          (c) => c['id'] == classId,
+          orElse: () => {},
+        ) as Map<String, dynamic>?;
       } catch (_) {
         classRow = null;
       }
@@ -387,9 +354,9 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
       // Fetch linked goals in one nested query (returns nested `goals` object/array depending on PostgREST)
       List<Map<String, dynamic>> goalsList = [];
       try {
-    final linksResp = await Supabase.instance.client.from('class_goal_links').select('goal_id, goals(id, key, title, required_sessions, advancement)').eq('class_id', classId);
+        final linksResp = await ApiService.getClassGoalLinks(classId.toString());
 
-        final links = List<Map<String, dynamic>>.from(linksResp as List? ?? []);
+        final links = List<Map<String, dynamic>>.from(linksResp);
         for (final l in links) {
           // Supabase/PostgREST may return the related row as a map or an array under the 'goals' key.
           dynamic nested = l['goals'];
@@ -398,15 +365,18 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
             goalResp = Map<String, dynamic>.from(nested.first as Map);
           } else if (nested is Map) {
             goalResp = Map<String, dynamic>.from(nested);
-      } else if (l.containsKey('goal_id')) {
+          } else if (l.containsKey('goal_id')) {
             // fallback: fetch the goal row directly
             try {
-        final g = await Supabase.instance.client.from('goals').select('id, key, title, required_sessions, advancement').eq('id', l['goal_id']).maybeSingle();
-        if (g != null) goalResp = Map<String, dynamic>.from(g as Map);
+              final allGoals = await ApiService.getGoals();
+              goalResp = allGoals.firstWhere(
+                (g) => g['id'] == l['goal_id'],
+                orElse: () => {},
+              ) as Map<String, dynamic>?;
             } catch (_) {}
           }
 
-          if (goalResp != null) goalsList.add(goalResp);
+          if (goalResp != null && goalResp.isNotEmpty) goalsList.add(goalResp);
         }
       } catch (e) {
         // log to help debug why goals may be missing
@@ -432,22 +402,21 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     return results;
   }
 
-  // Fetch registered classes for the user from Supabase, returns a list of classes
+  // Fetch registered classes for the user from API, returns a list of classes
   Future<List<Map<String, dynamic>>> _getRegisteredClasses() async {
-    // Fetch registered classes for the user from the supabase
-
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to view your account.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to view your account.')),
+        );
+      }
       return [];
     }
 
     // Request the nested `classes` row to include schedule/coach fields when available
-    final response = await Supabase.instance.client.from('student_classes').select('*, classes(id, class_name, date, time, coach_assigned)').eq('profile_id', userId);
-
-    final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
+    final response = await ApiService.getStudentClasses(userId);
+    final classes = List<Map<String, dynamic>>.from(response);
     return classes;
   }
 
@@ -456,9 +425,9 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     for (final cls in classes) {
       final classId = cls['id'];
       try {
-        final linksResp = await Supabase.instance.client.from('class_goal_links').select('goal_id, goals(id, key, title, required_sessions, advancement)').eq('class_id', classId);
+        final linksResp = await ApiService.getClassGoalLinks(classId.toString());
 
-        final links = List<Map<String, dynamic>>.from(linksResp as List? ?? []);
+        final links = List<Map<String, dynamic>>.from(linksResp);
         for (final l in links) {
           dynamic nested = l['goals'];
           Map<String, dynamic>? goalResp;
@@ -468,12 +437,15 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
             goalResp = Map<String, dynamic>.from(nested);
           } else if (l.containsKey('goal_id')) {
             try {
-              final g = await Supabase.instance.client.from('goals').select('id, key, title, required_sessions, advancement').eq('id', l['goal_id']).maybeSingle();
-              if (g != null) goalResp = Map<String, dynamic>.from(g as Map);
+              final allGoals = await ApiService.getGoals();
+              goalResp = allGoals.firstWhere(
+                (g) => g['id'] == l['goal_id'],
+                orElse: () => {},
+              ) as Map<String, dynamic>?;
             } catch (_) {}
           }
 
-          if (goalResp != null) {
+          if (goalResp != null && goalResp.isNotEmpty) {
             try {
               final advRaw = goalResp['advancement'];
               final advVal = (advRaw is int) ? advRaw : int.tryParse(advRaw?.toString() ?? '') ?? 0;
