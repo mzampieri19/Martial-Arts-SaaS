@@ -4,6 +4,7 @@
 // Different class lists will be passed to this widget based on the user role and the context (e.g., all classes, my classes, registered classes).
 
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../constants/app_constants.dart';
 
 /// Different visual styles for the classes list.
@@ -18,6 +19,12 @@ class ClassesList extends StatelessWidget {
   final bool enableActions;
   // Choose how each class row is displayed.
   final ClassListType classListType;
+  // When true the internal list will NOT scroll and will be shrinkWrapped.
+  // Set to false to enable internal scrolling (useful when placed in a
+  // fixed-height parent like `Expanded`). Default true preserves previous behavior.
+  final bool disableInnerScroll;
+  // When true, each row will support a slide action (Register) if actions are enabled.
+  final bool enableSlidable;
 
   ClassesList({
     required this.classes,
@@ -26,6 +33,8 @@ class ClassesList extends StatelessWidget {
     required this.onEdit,
     this.enableActions = true,
     this.classListType = ClassListType.card,
+    this.disableInnerScroll = true,
+    this.enableSlidable = true,
     Key? key,
   }) : super(key: key);
 
@@ -300,22 +309,57 @@ class ClassesList extends StatelessWidget {
     // placed inside another scrollable (e.g., SingleChildScrollView) without
     // causing an unbounded-height error.
     return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: disableInnerScroll,
+      physics: disableInnerScroll ? const NeverScrollableScrollPhysics() : null,
       itemCount: classes.length,
       itemBuilder: (context, index) {
         final classItem = classes[index];
+
+        Widget child;
         switch (classListType) {
           case ClassListType.compact:
-            return _buildCompactItem(context, classItem);
+            child = _buildCompactItem(context, classItem);
+            break;
           case ClassListType.card:
-            return _buildCardItem(context, classItem);
+            child = _buildCardItem(context, classItem);
+            break;
           case ClassListType.detailed:
-            return Padding(
+            child = Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: _buildDetailedItem(context, classItem),
             );
+            break;
         }
+
+        // If slidable is enabled and actions are allowed, wrap the child in a Slidable
+        if (enableSlidable && enableActions) {
+          // try to get a stable id for the key
+          final keyId = (classItem is Map) ? (classItem['id'] ?? classItem['class_id'] ?? _getTitle(classItem)) : _getTitle(classItem);
+          return Slidable(
+            key: ValueKey(keyId),
+            endActionPane: ActionPane(
+              motion: const ScrollMotion(),
+              children: [
+                SlidableAction(
+                  onPressed: (context) async {
+                    try {
+                      await onRegister(classItem);
+                    } catch (e) {
+                      // ignore
+                    }
+                  },
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  icon: Icons.check_circle,
+                  label: 'Register',
+                ),
+              ],
+            ),
+            child: child,
+          );
+        }
+
+        return child;
       },
     );
   }

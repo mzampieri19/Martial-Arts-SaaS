@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'components/classes_list.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -220,48 +220,29 @@ class _CalendarPageState extends State<CalendarPage> {
               Expanded(
                 child: selectedDayItems.isEmpty
                     ? const Center(child: Text('No classes on this day.'))
-                    : ListView.builder(
-                        itemCount: selectedDayItems.length,
-                        itemBuilder: (context, index) {
-                          final item = selectedDayItems[index];
-                          final className = item['class_name'] ?? 'Unnamed class';
-                          final classDate = item['date'] ?? '';
-                          final classTime = item['time'] ?? '';
-                          final classId = item['id'];
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: Slidable(
-                              key: ValueKey(classId),
-                              endActionPane: ActionPane(
-                                motion: const ScrollMotion(),
-                                children: [
-                                  SlidableAction(
-                                    onPressed: (_) async => await registerForClass(classId),
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    icon: Icons.check_circle,
-                                    label: 'Register',
-                                  ),
-                                ],
-                              ),
-                              child: Card(
-                                margin: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 2,
-                                clipBehavior: Clip.antiAlias,
-                                child: ListTile(
-                                  title: Text(
-                                    className,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  subtitle: Text('Date: $classDate\nTime: $classTime'),
-                                ),
-                              ),
-                            ),
-                          );
+                    : ClassesList(
+                        classes: selectedDayItems,
+                        // allow the internal list to scroll because we're inside Expanded
+                        disableInnerScroll: false,
+                        classListType: ClassListType.card,
+                        enableActions: true,
+                        onRegister: (classItem) async {
+                          // classItem may be a Map with an 'id' field
+                          try {
+                            final id = (classItem is Map) ? (classItem['id'] ?? classItem['class_id']) : null;
+                            if (id != null) {
+                              await registerForClass(id is int ? id : int.parse(id.toString()));
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Register error: $e')));
+                          }
+                        },
+                        onUnregister: (classItem) async {
+                          // Simple placeholder: show a snackbar. Implement actual unregister if needed.
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unregister not implemented')));
+                        },
+                        onEdit: (classItem) async {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit not implemented')));
                         },
                       ),
               ),
