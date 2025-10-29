@@ -25,6 +25,8 @@ class ClassesList extends StatelessWidget {
   final bool disableInnerScroll;
   // When true, each row will support a slide action (Register) if actions are enabled.
   final bool enableSlidable;
+  // Optional tap handler when a class row is tapped.
+  final Function(dynamic)? onTap;
 
   ClassesList({
     required this.classes,
@@ -35,6 +37,7 @@ class ClassesList extends StatelessWidget {
     this.classListType = ClassListType.card,
     this.disableInnerScroll = true,
     this.enableSlidable = true,
+    this.onTap,
     Key? key,
   }) : super(key: key);
 
