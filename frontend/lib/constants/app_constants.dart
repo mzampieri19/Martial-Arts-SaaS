@@ -230,5 +230,41 @@ class MartialArtsConstants {
 
   // Can add more martial arts specific constants here
   // Such as classes types, difficulty levels, etc.
+  // Mapping from numeric class type IDs to human-friendly names.
+  // Update these values to match the backend enums/codes.
+  static const Map<int, String> classTypeNames = {
+    1: 'Karate',
+    2: 'BJJ',
+    3: 'Muay Thai',
+    4: 'Conditioning',
+    5: 'Yoga',
+    6: 'Open Mat',
+  };
+
+  /// Helper to resolve a class type code or string to a display name.
+  /// Accepts int or numeric string; falls back to the original string if not found.
+  static String resolveClassType(dynamic codeOrString) {
+    if (codeOrString == null) return '';
+    if (codeOrString is int) {
+      return classTypeNames[codeOrString] ?? codeOrString.toString();
+    }
+    if (codeOrString is String) {
+      final trimmed = codeOrString.trim();
+      // If the string contains only digits, try to parse and lookup
+      final digitsOnly = RegExp(r'^\d+\$');
+      if (digitsOnly.hasMatch(trimmed)) {
+        try {
+          final val = int.parse(trimmed);
+          return classTypeNames[val] ?? trimmed;
+        } catch (_) {
+          return trimmed;
+        }
+      }
+      // Otherwise return the string as-is
+      return trimmed;
+    }
+    // Fallback to toString
+    return codeOrString.toString();
+  }
 
 }
