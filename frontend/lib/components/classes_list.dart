@@ -120,8 +120,8 @@ class ClassesList extends StatelessWidget {
     ? classItem['classes'] as Map
     : (classItem is Map ? classItem : {});
 
-    // leading color (either provided, or fallback by difficulty/type)
-    Color leadingColor = AppConstants.accentColor;
+  // leading color (either provided, or fallback by difficulty/type)
+  Color leadingColor = AppConstants.accentColor;
     try {
       final c = data['color'];
       if (c is int) leadingColor = Color(c);
@@ -170,13 +170,16 @@ class ClassesList extends StatelessWidget {
               child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // colored indicator
+                // colored indicator (wider and taller for emphasis)
                 Container(
-                  width: 6,
-                  height: 64,
+                  width: 10,
+                  height: 72,
                   decoration: BoxDecoration(
                     color: leadingColor,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(color: leadingColor.withOpacity(0.12), blurRadius: 6, offset: const Offset(0, 2)),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -193,6 +196,7 @@ class ClassesList extends StatelessWidget {
                               _getTitle(classItem),
                               style: AppConstants.headingSm.copyWith(
                                 color: AppConstants.textPrimary,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -220,44 +224,44 @@ class ClassesList extends StatelessWidget {
                       if (subtitle.isNotEmpty)
                         Text('with coach $subtitle',
                             style: AppConstants.bodyMd
-                                .copyWith(color: AppConstants.textSecondary)),
+                                .copyWith(color: AppConstants.textPrimary, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 12),
                       Row(
                         children: [
-                          const Icon(Icons.schedule_rounded,
-                              size: AppConstants.iconSm,
-                              color: AppConstants.textSecondary),
+                          Icon(Icons.schedule_rounded,
+                              size: AppConstants.iconLg,
+                              color: AppConstants.textPrimary.withOpacity(0.85)),
                           const SizedBox(width: 6),
                           Text(
                             '${data['date'] ?? ''} ${data['time'] ?? ''}'.trim(),
                             style: AppConstants.bodySm
-                                .copyWith(color: AppConstants.textSecondary),
+                                .copyWith(color: AppConstants.textPrimary),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.sports_martial_arts_rounded,
-                              size: AppConstants.iconSm,
-                              color: AppConstants.textSecondary),
-                          const SizedBox(width: 6),
+                          Icon(Icons.sports_martial_arts_rounded,
+                              size: AppConstants.iconXl,
+                              color: AppConstants.textPrimary.withOpacity(0.9)),
+                          const SizedBox(width: 8),
                           Text(
                             // Resolve numeric class type IDs to friendly names if possible
                             MartialArtsConstants.resolveClassType(
                                 data['type_of_class'] ?? data['class_type'] ?? data['type'] ?? ''),
                             style: AppConstants.bodySm
-                                .copyWith(color: AppConstants.textSecondary),
+                                .copyWith(color: AppConstants.textPrimary, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Builder(builder: (ctx) {
-              final goals = (data['goals'] is List)
-                ? List.from(data['goals'] as List)
-                : (classItem is Map && classItem['goals'] is List)
-                  ? List.from(classItem['goals'] as List)
-                  : <dynamic>[];
+                        final goals = (data['goals'] is List)
+                            ? List.from(data['goals'] as List)
+                            : (classItem is Map && classItem['goals'] is List)
+                                ? List.from(classItem['goals'] as List)
+                                : <dynamic>[];
                         if (goals.isEmpty) return const SizedBox.shrink();
 
                         return Column(
