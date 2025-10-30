@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:bottom_picker/bottom_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/components/classes_list.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Colors for UI
@@ -66,16 +67,26 @@ class _EditClassPageState extends State<EditClassPage> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } 
-          return ListView.builder(
-            itemCount: _classes.length,
-            itemBuilder: (context, index) {
-              final classItem = _classes[index];
-              return ListTile(
-                title: Text(classItem['class_name'] ?? 'No Name'),
-                subtitle: Text('Class ID: ${classItem['id']}'),
-                onTap: () => _showEditDialog(classItem),
-              );
-            },
+          // return ListView.builder(
+          //   itemCount: _classes.length,
+          //   itemBuilder: (context, index) {
+          //     final classItem = _classes[index];
+          //     return ListTile(
+          //       title: Text(classItem['class_name'] ?? 'No Name'),
+          //       subtitle: Text('Class ID: ${classItem['id']}'),
+          //       onTap: () => _showEditDialog(classItem),
+          //     );
+          //   },
+          // );
+          return ClassesList(
+            classes: _classes,
+            onTap: (classItem) async {
+              await _showEditDialog(classItem);
+            }, onRegister: (p1) {  }, 
+            onUnregister: (p1) {  }, 
+            onEdit: (p1) {  }, 
+            enableActions: true,
+            disableInnerScroll: false,
           );
         }
       )
