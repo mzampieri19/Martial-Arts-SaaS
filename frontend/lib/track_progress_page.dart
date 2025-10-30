@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
-import 'components/classes_list.dart';
 
 class TrackingProgressPage extends StatefulWidget {
   @override
@@ -45,9 +44,6 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
   final Map<int, int> _attendanceByClass = <int, int>{};
   // Map of goal_id -> advancement (number of classes completed for that goal, for the user)
   final Map<int, int> _advancementByGoal = <int, int>{};
-  // Expansion state for each class id on this page (used to programmatically
-  // expand the detailed class panel when a class is tapped in the overview).
-  final Map<int, bool> _expandedByClass = <int, bool>{};
   // Cache of per-user per-class marks: key '${goalId}:${classId}' -> true
   final Map<String, bool> _marksCache = <String, bool>{};
 
@@ -208,126 +204,71 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
                 const SizedBox(height: AppConstants.spaceLg),
 
-                // Compact classes overview (cards)
-                Text(
-                  'Your Classes',
-                  style: AppConstants.headingLg.copyWith(
-                    color: AppConstants.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppConstants.spaceMd),
-                ClassesList(
-                  classes: classes,
-                  // This page already shows goals and details below; keep actions off here.
-                  enableActions: false,
-                  enableSlidable: false,
-                  classListType: ClassListType.card,
-                  onRegister: (c) {},
-                  onUnregister: (c) {},
-                  onEdit: (c) {},
-                  onTap: (c) {
-                    // Try to resolve a stable class id and toggle its expanded state
-                    try {
-                      int? id;
-                      if (c is Map) {
-                        id = (c['id'] ?? c['class_id'] ?? c['classes']?['id']) as int?;
-                      }
-                      if (id != null) {
-                        final nid = id;
-                        setState(() {
-                          _expandedByClass[nid] = !(_expandedByClass[nid] ?? false);
-                        });
-                      }
-                    } catch (e) {
-                      // ignore
-                    }
-                  },
-                ),
-
-                const SizedBox(height: AppConstants.spaceLg),
-
-                // Classes list (detailed with goals) — controlled ExpansionPanelList so
-                // panels can be programmatically expanded when the overview cards are tapped.
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                  ),
-                  child: ExpansionPanelList(
-                    expansionCallback: (panelIndex, isExpanded) {
-                      final classInfo = classes[panelIndex];
-                      final cid = classInfo['id'] as int;
-                      setState(() {
-                        _expandedByClass[cid] = !(isExpanded);
-                      });
-                    },
-                    children: classes.asMap().entries.map<ExpansionPanel>((entry) {
-                      final classInfo = Map<String, dynamic>.from(entry.value);
-                      final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
-                      final goals = classInfo['goals'] as List? ?? [];
-                      final cid = classInfo['id'] as int;
-                      final date = classInfo['date'] as String? ?? 'Unknown Date';
-                      final time = classInfo['time'] as String? ?? 'Unknown Time';
-                      final coach = classInfo['coach_name'] as String? ?? 'Unknown Coach';
-
-                      return ExpansionPanel(
-                        headerBuilder: (context, isExpanded) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceMd, vertical: AppConstants.spaceSm),
-                            child: ListTile(
-                              title: Text(className, style: AppConstants.headingXs),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Date: $date', style: AppConstants.bodySm),
-                                  Text('Time: $time', style: AppConstants.bodySm),
-                                  Text('Coach: $coach', style: AppConstants.bodySm),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                        body: Container(
-                          padding: const EdgeInsets.only(bottom: AppConstants.spaceMd),
-                          color: AppConstants.surfaceColor,
-                          child: Column(
-                            children: goals.isNotEmpty
-                                ? goals.map<Widget>((g) {
-                                    final goalId = g['id'] as int;
-                                    final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
-                                    final keyStr = '$goalId:$cid';
-                                    final checked = _marksCache[keyStr] == true;
-                                    final adv = _advancementByGoal[goalId] ?? 0;
-                                    return ListTile(
-                                      title: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(child: Text(title, style: AppConstants.bodyMd)),
-                                          Text('Advancement: $adv', style: AppConstants.labelMd),
-                                        ],
-                                      ),
-                                      subtitle: Row(
-                                        children: [
-                                          Expanded(child: Text('Required: ${g['required_sessions'] ?? 0}')),
-                                          Checkbox(
-                                            value: checked,
-                                            onChanged: (v) async {
-                                              final mark = v == true;
-                                              await _toggleMark(goalId, cid, mark);
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList()
-                                : [const ListTile(title: Text('No goals linked for this class'))],
-                          ),
+                // Classes list
+                ...classes.map((classInfo) {
+                  final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
+                  final goals = classInfo['goals'] as List? ?? [];
+                  final cid = classInfo['id'] as int;
+                  final date = classInfo['date'] as String? ?? 'Unknown Date';
+                  final time = classInfo['time'] as String? ?? 'Unknown Time';
+                  final coach = classInfo['coach_name'] as String? ?? 'Unknown Coach';
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: AppConstants.spaceMd),
+                    padding: const EdgeInsets.all(AppConstants.spaceMd),
+                    decoration: BoxDecoration(
+                      color: AppConstants.surfaceColor,
+                      borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
-                        isExpanded: _expandedByClass[cid] ?? false,
-                        canTapOnHeader: true,
-                      );
-                    }).toList(),
-                  ),
-                ),
+                      ],
+                    ),
+                    child: ExpansionTile(
+                      title: Text(className, style: AppConstants.headingXs),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Date: $date', style: AppConstants.bodySm),
+                          Text('Time: $time', style: AppConstants.bodySm),
+                          Text('Coach: $coach', style: AppConstants.bodySm),
+                        ],
+                      ),
+                      children: goals.isNotEmpty
+                          ? goals.map<Widget>((g) {
+                              final goalId = g['id'] as int;
+                              final title = g['title'] ?? g['key'] ?? 'Unnamed Goal';
+                              final keyStr = '$goalId:$cid';
+                              final checked = _marksCache[keyStr] == true;
+                              final adv = _advancementByGoal[goalId] ?? 0;
+                              return ListTile(
+                                title: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text(title, style: AppConstants.bodyMd)),
+                                    Text('Advancement: $adv', style: AppConstants.labelMd),
+                                  ],
+                                ),
+                                subtitle: Row(
+                                  children: [
+                                    Expanded(child: Text('Required: ${g['required_sessions'] ?? 0}')),
+                                    Checkbox(
+                                      value: checked,
+                                      onChanged: (v) async {
+                                        final mark = v == true;
+                                        await _toggleMark(goalId, cid, mark);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList()
+                          : [const ListTile(title: Text('No goals linked for this class'))],
+                    ),
+                  );
+                }),
               ],
             ),
           );
@@ -351,7 +292,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
     setState(() {});
 
     try {
-      await Supabase.instance.client.rpc('toggle_user_goal_mark', params: {
+      final resp = await Supabase.instance.client.rpc('toggle_user_goal_mark', params: {
         'p_user_id': userId,
         'p_goal_id': goalId,
         'p_class_id': classId,

@@ -243,7 +243,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         },
                         onEdit: (classItem) async {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit not implemented')));
-                        },
+                        }, onTap: (p1) {  },
                       ),
               ),
             ],

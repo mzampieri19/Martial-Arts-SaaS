@@ -388,6 +388,9 @@ class HomeContentPage extends StatelessWidget {
             },
             enableActions: false,
             classListType: ClassListType.card,
+            onTap: (classItem) {
+              // Handle class item tap
+            },
           );
         }
       },

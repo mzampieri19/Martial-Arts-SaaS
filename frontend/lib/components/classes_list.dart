@@ -27,17 +27,24 @@ class ClassesList extends StatelessWidget {
   final bool enableSlidable;
   // Optional tap handler when a class row is tapped.
   final Function(dynamic)? onTap;
+  // Optional map of already-marked goals keyed by '$goalId:$classId' -> true
+  final Map<String, bool>? marksCache;
+  // Callback invoked when a goal checkbox is toggled from within the card.
+  // Signature: (goalId, classId, mark)
+  final Function(int goalId, int classId, bool mark)? onToggleGoal;
 
   ClassesList({
     required this.classes,
     required this.onRegister,
     required this.onUnregister,
     required this.onEdit,
-    this.enableActions = true,
+    required this.enableActions,
     this.classListType = ClassListType.card,
     this.disableInnerScroll = true,
     this.enableSlidable = true,
-    this.onTap,
+    required this.onTap,
+    this.marksCache,
+    this.onToggleGoal,
     Key? key,
   }) : super(key: key);
 
@@ -138,106 +145,182 @@ class ClassesList extends StatelessWidget {
       badgeColor = Colors.red.shade100;
     }
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: AppConstants.spaceMd / 2),
-      child: Material(
-        color: AppConstants.surfaceColor,
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        elevation: AppConstants.elevationSm,
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // colored indicator
-              Container(
-                width: 6,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: leadingColor,
-                  borderRadius: BorderRadius.circular(4),
+    return StatefulBuilder(builder: (context, setState) {
+      bool expanded = false;
+
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: AppConstants.spaceMd / 2),
+        child: Material(
+          color: AppConstants.surfaceColor,
+          borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+          elevation: AppConstants.elevationSm,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+            onTap: () {
+              try {
+                // toggle inline expansion so tapping the whole card opens goals
+                setState(() {
+                  expanded = !expanded;
+                });
+                if (onTap != null) onTap!(classItem);
+              } catch (_) {}
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // colored indicator
+                Container(
+                  width: 6,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: leadingColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _getTitle(classItem),
-                            style: AppConstants.headingSm.copyWith(
-                              color: AppConstants.textPrimary,
+                const SizedBox(width: 12),
+                // content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _getTitle(classItem),
+                              style: AppConstants.headingSm.copyWith(
+                                color: AppConstants.textPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                        if (difficulty.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: badgeColor,
-                              borderRadius:
-                                  BorderRadius.circular(AppConstants.radiusLg),
+                          if (difficulty.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: badgeColor,
+                                borderRadius:
+                                    BorderRadius.circular(AppConstants.radiusLg),
+                              ),
+                              child: Text(
+                                difficulty,
+                                style: AppConstants.labelXs.copyWith(
+                                    color: AppConstants.textPrimary,
+                                    fontWeight: FontWeight.w600),
+                              ),
                             ),
-                            child: Text(
-                              difficulty,
-                              style: AppConstants.labelXs.copyWith(
-                                  color: AppConstants.textPrimary,
-                                  fontWeight: FontWeight.w600),
-                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      if (subtitle.isNotEmpty)
+                        Text('with coach $subtitle',
+                            style: AppConstants.bodyMd
+                                .copyWith(color: AppConstants.textSecondary)),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Icon(Icons.schedule_rounded,
+                              size: AppConstants.iconSm,
+                              color: AppConstants.textSecondary),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${data['date'] ?? ''} ${data['time'] ?? ''}'.trim(),
+                            style: AppConstants.bodySm
+                                .copyWith(color: AppConstants.textSecondary),
                           ),
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    if (subtitle.isNotEmpty)
-                      Text('with coach $subtitle',
-                          style: AppConstants.bodyMd
-                              .copyWith(color: AppConstants.textSecondary)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Icon(Icons.schedule_rounded,
-                            size: AppConstants.iconSm,
-                            color: AppConstants.textSecondary),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${data['date'] ?? ''} ${data['time'] ?? ''}'.trim(),
-                          style: AppConstants.bodySm
-                              .copyWith(color: AppConstants.textSecondary),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.sports_martial_arts_rounded,
-                            size: AppConstants.iconSm,
-                            color: AppConstants.textSecondary),
-                        const SizedBox(width: 6),
-                        Text(
-                          // Resolve numeric class type IDs to friendly names if possible
-                          MartialArtsConstants.resolveClassType(
-                              data['type_of_class'] ?? data['class_type'] ?? data['type'] ?? ''),
-                          style: AppConstants.bodySm
-                              .copyWith(color: AppConstants.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.sports_martial_arts_rounded,
+                              size: AppConstants.iconSm,
+                              color: AppConstants.textSecondary),
+                          const SizedBox(width: 6),
+                          Text(
+                            // Resolve numeric class type IDs to friendly names if possible
+                            MartialArtsConstants.resolveClassType(
+                                data['type_of_class'] ?? data['class_type'] ?? data['type'] ?? ''),
+                            style: AppConstants.bodySm
+                                .copyWith(color: AppConstants.textSecondary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Builder(builder: (ctx) {
+              final goals = (data['goals'] is List)
+                ? List.from(data['goals'] as List)
+                : (classItem is Map && classItem['goals'] is List)
+                  ? List.from(classItem['goals'] as List)
+                  : <dynamic>[];
+                        if (goals.isEmpty) return const SizedBox.shrink();
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  expanded = !expanded;
+                                });
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Goals (${goals.length})', style: AppConstants.labelSm.copyWith(color: AppConstants.textSecondary)),
+                                  Icon(expanded ? Icons.expand_less : Icons.expand_more, size: 18, color: AppConstants.textSecondary),
+                                ],
+                              ),
+                            ),
+                            if (expanded) ...[
+                              const SizedBox(height: 8),
+                              Column(
+                                children: goals.map<Widget>((g) {
+                                  final goalId = (g is Map) ? (g['id'] as int? ?? 0) : 0;
+                                  final cid = (data['id'] ?? data['class_id'] ?? (data['classes'] is Map ? data['classes']['id'] : null)) is int
+                                      ? (data['id'] ?? data['class_id'] ?? (data['classes'] is Map ? data['classes']['id'] : null)) as int
+                                      : (classItem is Map ? (classItem['id'] ?? classItem['class_id']) as int? ?? 0 : 0);
+                                  final keyStr = '$goalId:$cid';
+                                  var checked = marksCache != null ? (marksCache![keyStr] ?? false) : false;
+                                  return Row(
+                                    children: [
+                                      Expanded(child: Text(g['title'] ?? g['key'] ?? 'Goal ${goalId}', style: AppConstants.bodyMd)),
+                                      Checkbox(
+                                        value: checked,
+                                        onChanged: (v) async {
+                                          final mark = v == true;
+                                          // optimistically update local view
+                                          checked = mark;
+                                          setState(() {});
+                                          try {
+                                            if (onToggleGoal != null) await onToggleGoal!(goalId, cid, mark);
+                                          } catch (_) {}
+                                        },
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ]
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
+      )
     );
+    }
+  );
   }
 
   Widget _buildDetailedItem(BuildContext context, dynamic classItem) {
