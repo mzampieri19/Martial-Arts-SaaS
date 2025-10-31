@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to take profile photos</string>
+	<string>This app needs camera access to scan QR codes for class check-in and to take profile photos</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs photo library access to select profile photos</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
