@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:frontend/components/classes_list.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile.dart';
 import 'announcements.dart';
 import 'calendar.dart';
@@ -315,226 +319,91 @@ class HomeContentPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Dashboard',
+          'Your Upcoming Classes',
           style: AppConstants.headingLg.copyWith(
             color: AppConstants.textPrimary,
           ),
         ),
         SizedBox(height: AppConstants.spaceLg),
-        
-        // Filter Section
-        _buildFilters(),
-        
-        SizedBox(height: AppConstants.spaceLg),
-        
         // Classes List
         _buildClassesList(),
       ],
     );
   }
 
-  Widget _buildFilters() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          _buildFilterChip('All Classes', true),
-          SizedBox(width: AppConstants.spaceSm),
-          _buildFilterChip('Karate', false),
-          SizedBox(width: AppConstants.spaceSm),
-          _buildFilterChip('BJJ', false),
-          SizedBox(width: AppConstants.spaceSm),
-          _buildFilterChip('Muay Thai', false),
-          SizedBox(width: AppConstants.spaceSm),
-          _buildFilterChip('This Week', false),
-          SizedBox(width: AppConstants.spaceSm),
-          _buildFilterChip('Today', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, bool isSelected) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: AppConstants.spaceMd,
-        vertical: AppConstants.spaceSm,
-      ),
-      decoration: BoxDecoration(
-        color: isSelected 
-            ? AppConstants.accentColor 
-            : AppConstants.surfaceColor,
-        borderRadius: BorderRadius.circular(AppConstants.radiusXl),
-        border: Border.all(
-          color: isSelected 
-              ? AppConstants.accentColor 
-              : AppConstants.grey300,
-        ),
-      ),
-      child: Text(
-        label,
-        style: AppConstants.labelSm.copyWith(
-          color: isSelected 
-              ? Colors.white 
-              : AppConstants.textSecondary,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-    );
-  }
-
   Widget _buildClassesList() {
-    final classes = [
-      {
-        'name': 'Karate Fundamentals',
-        'instructor': 'Sensei Johnson',
-        'time': 'Today, 6:00 PM - 7:30 PM',
-        'type': 'Karate',
-        'difficulty': 'Beginner',
-        'color': Colors.orange,
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getRegisteredClasses(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Container(
+            padding: EdgeInsets.all(AppConstants.spaceLg),
+            child: Text(
+              'Error loading classes',
+              style: AppConstants.bodyMd.copyWith(color: AppConstants.textSecondary),
+            ),
+          );
+        } else {
+          final classes = snapshot.data ?? [];
+          return ClassesList(
+            classes: classes,
+            onRegister: (classItem) {
+            },
+            onUnregister: (classItem) {
+            },
+            onEdit: (classItem) {
+            },
+            enableActions: false,
+            classListType: ClassListType.card,
+            onTap: (classItem) {
+              // Handle class item tap
+            },
+          );
+        }
       },
-      {
-        'name': 'BJJ Advanced Techniques',
-        'instructor': 'Professor Silva',
-        'time': 'Tomorrow, 7:00 PM - 8:30 PM',
-        'type': 'BJJ',
-        'difficulty': 'Advanced',
-        'color': Colors.blue,
-      },
-      {
-        'name': 'Muay Thai Conditioning',
-        'instructor': 'Kru Martinez',
-        'time': 'Wednesday, 6:30 PM - 8:00 PM',
-        'type': 'Muay Thai',
-        'difficulty': 'Intermediate',
-        'color': Colors.red,
-      },
-      {
-        'name': 'Open Mat Session',
-        'instructor': 'Various',
-        'time': 'Friday, 7:00 PM - 9:00 PM',
-        'type': 'Open Mat',
-        'difficulty': 'All Levels',
-        'color': Colors.green,
-      },
-      {
-        'name': 'Self Defense Workshop',
-        'instructor': 'Instructor Lee',
-        'time': 'Saturday, 10:00 AM - 12:00 PM',
-        'type': 'Self Defense',
-        'difficulty': 'Beginner',
-        'color': Colors.purple,
-      },
-    ];
-
-    return Column(
-      children: classes.map((classData) => _buildClassCard(classData)).toList(),
     );
   }
 
-  Widget _buildClassCard(Map<String, dynamic> classData) {
-    return Container(
-      margin: EdgeInsets.only(bottom: AppConstants.spaceMd),
-      padding: EdgeInsets.all(AppConstants.spaceLg),
-      decoration: BoxDecoration(
-        color: AppConstants.surfaceColor,
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: classData['color'],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              SizedBox(width: AppConstants.spaceMd),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      classData['name'],
-                      style: AppConstants.headingSm.copyWith(
-                        color: AppConstants.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      'with ${classData['instructor']}',
-                      style: AppConstants.bodyMd.copyWith(
-                        color: AppConstants.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppConstants.spaceSm,
-                  vertical: AppConstants.spaceXs,
-                ),
-                decoration: BoxDecoration(
-                  color: classData['color'].withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusSm),
-                ),
-                child: Text(
-                  classData['difficulty'],
-                  style: AppConstants.labelXs.copyWith(
-                    color: classData['color'],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppConstants.spaceMd),
-          Row(
-            children: [
-              Icon(
-                Icons.schedule_rounded,
-                size: AppConstants.iconSm,
-                color: AppConstants.textSecondary,
-              ),
-              SizedBox(width: AppConstants.spaceXs),
-              Text(
-                classData['time'],
-                style: AppConstants.bodyMd.copyWith(
-                  color: AppConstants.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppConstants.spaceSm),
-          Row(
-            children: [
-              Icon(
-                Icons.sports_martial_arts_rounded,
-                size: AppConstants.iconSm,
-                color: AppConstants.textSecondary,
-              ),
-              SizedBox(width: AppConstants.spaceXs),
-              Text(
-                classData['type'],
-                style: AppConstants.bodyMd.copyWith(
-                  color: AppConstants.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  Future<List<Map<String, dynamic>>> _getRegisteredClasses() async {
+    // Fetch registered classes for the user from the supabase
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      print("User not logged in");
+      return [];
+    }
+    // Request the nested `classes` row to include schedule/coach fields when available
+    final response = await Supabase.instance.client.from('student_classes').select('*, classes(id, class_name, date, time, coach_assigned, type_of_class, difficulty, goals_achieved)').eq('profile_id', userId);
+
+    final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
+    // filter to show only classes in the next week
+    classes.retainWhere((classItem) {
+      final classData = classItem['classes'];
+      if (classData == null) return false;
+      final classDateStr = classData['date'] as String?;
+      final classTimeStr = classData['time'] as String?;
+      if (classDateStr == null) return false;
+      if (classTimeStr == null) return false;
+      // Combine date and time into a single DateTime object      
+      final classDate = DateTime.parse(classDateStr);
+      final classTime = TimeOfDay.fromDateTime(classDate);
+      final classDateTime = DateTime(
+        classDate.year,
+        classDate.month,
+        classDate.day,
+        classTime.hour,
+        classTime.minute,
+      );
+      // Check if classDateTime is within the next week
+      final now = DateTime.now();
+      final oneWeekFromNow = now.add(Duration(days: 7));
+      print("Loaded classes after filtering: ${classes.length}");
+      return classDateTime.isAfter(now) && classDateTime.isBefore(oneWeekFromNow);
+    });
+    // Add `import 'dart:convert';` at the top of the file
+    final pretty = const JsonEncoder.withIndent('  ').convert(classes);
+    debugPrint(pretty);
+    return classes;
   }
 }
