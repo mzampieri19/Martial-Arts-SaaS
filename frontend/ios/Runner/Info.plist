@@ -4,7 +4,7 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to scan QR codes for class check-in and to take profile photos</string>
-	<key>NSPhotoLibraryUsageDescription</key>
+	<key>NSPhot oLibraryUsageDescription</key>
 	<string>This app needs photo library access to select profile photos</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
@@ -30,6 +30,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take profile photos</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select profile photos</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'components/class_card.dart';
 import 'components/classes_list.dart';
 
 class CalendarPage extends StatefulWidget {
@@ -35,7 +36,18 @@ class _CalendarPageState extends State<CalendarPage> {
 
   Future<List<Map<String, dynamic>>> fetchClasses() async {
     final response = await Supabase.instance.client.from('classes').select();
-    return List<Map<String, dynamic>>.from(response);
+    final classList = List<Map<String, dynamic>>.from(response);
+    
+    // Deduplicate by class ID to prevent showing duplicate cards
+    final Map<int, Map<String, dynamic>> uniqueClasses = {};
+    for (var classItem in classList) {
+      final classId = classItem['id'] as int;
+      if (!uniqueClasses.containsKey(classId)) {
+        uniqueClasses[classId] = classItem;
+      }
+    }
+    
+    return uniqueClasses.values.toList();
   }
 
   Future<List<Map<String, dynamic>>> fetchRegisteredClasses() async {
@@ -43,19 +55,18 @@ class _CalendarPageState extends State<CalendarPage> {
     final user = supabase.auth.currentUser;
 
     if (user == null) {
-      print('No logged-in user found.');
+      print('❌ No logged-in user found.');
       return [];
     }
 
-    print('Debug - User ID: ${user.id}');
-    print('Debug - User ID type: ${user.id.runtimeType}');
+    print('🔍 Fetching registered classes for user: ${user.id}');
 
     try {
       // First, let's see ALL records in the table (debug)
       final allRecords = await supabase
           .from('student_classes')
           .select('*');
-      print('Debug - ALL records in student_classes: $allRecords');
+      print('📊 ALL records in student_classes (${allRecords.length} total): $allRecords');
       
       // Test with a simple query first
       final testResponse = await supabase
@@ -63,7 +74,7 @@ class _CalendarPageState extends State<CalendarPage> {
           .select('*')
           .eq('profile_id', user.id);
       
-      print('Debug - Raw response for user ${user.id}: $testResponse');
+      print('🔎 Raw student_classes for user ${user.id}: $testResponse');
       
       if (testResponse.isEmpty) {
         print('📭 No registered classes found for ${user.id}');
@@ -76,51 +87,32 @@ class _CalendarPageState extends State<CalendarPage> {
           .select('classes(id, class_name, date, time)')
           .eq('profile_id', user.id);
 
-      return List<Map<String, dynamic>>.from(
+      print('🔗 Join query response: $response');
+
+      final classList = List<Map<String, dynamic>>.from(
         (response as List)
+            .where((row) => row['classes'] != null)
             .map((row) => row['classes'] as Map<String, dynamic>)
             .toList(),
       );
+      
+      print('📋 Classes list after mapping: $classList');
+      
+      // Deduplicate by class ID to prevent showing duplicate cards
+      final Map<int, Map<String, dynamic>> uniqueClasses = {};
+      for (var classItem in classList) {
+        final classId = classItem['id'] as int;
+        if (!uniqueClasses.containsKey(classId)) {
+          uniqueClasses[classId] = classItem;
+        }
+      }
+      
+      print('✅ Final unique classes (${uniqueClasses.length}): ${uniqueClasses.values.toList()}');
+      
+      return uniqueClasses.values.toList();
     } catch (e) {
-      print('Error in fetchRegisteredClasses: $e');
+      print('❌ Error in fetchRegisteredClasses: $e');
       return [];
-    }
-  }
-
-  Future<void> registerForClass(int classId) async {
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-
-    final String userId = user!.id;
-
-
-    
-    try {
-      await supabase.from('student_classes').insert({
-        'profile_id': userId,
-        'class_id': classId,
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully registered!')),
-      );
-
-      if (_showRegisteredOnly) {
-        setState(() => _classesFuture = fetchRegisteredClasses());
-      }
-    } catch (e) {
-      final error = e.toString();
-      if (error.contains('duplicate key value')) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You are already registered for this class!'),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error registering: $error')),
-        );
-      }
     }
   }
 
@@ -162,11 +154,9 @@ class _CalendarPageState extends State<CalendarPage> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No classes found.'));
           }
 
-          final items = snapshot.data!;
+          final items = snapshot.data ?? [];
 
           // Group classes by date for TableCalendar's eventLoader
           final Map<DateTime, List<Map<String, dynamic>>> events = {};
@@ -219,27 +209,22 @@ class _CalendarPageState extends State<CalendarPage> {
               const Divider(height: 1),
               Expanded(
                 child: selectedDayItems.isEmpty
-                    ? const Center(child: Text('No classes on this day.'))
-                    : ClassesList(
-                        classes: selectedDayItems,
-                        // allow the internal list to scroll because we're inside Expanded
-                        disableInnerScroll: false,
-                        classListType: ClassListType.card,
-                        enableActions: true,
-                        onRegister: (classItem) async {
-                          // classItem may be a Map with an 'id' field
-                          try {
-                            final id = (classItem is Map) ? (classItem['id'] ?? classItem['class_id']) : null;
-                            if (id != null) {
-                              await registerForClass(id is int ? id : int.parse(id.toString()));
-                            }
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Register error: $e')));
-                          }
-                        },
-                        onUnregister: (classItem) async {
-                          // Simple placeholder: show a snackbar. Implement actual unregister if needed.
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Unregister not implemented')));
+                    ? Center(
+                        child: Text(
+                          _showRegisteredOnly 
+                              ? 'No registered classes on this day.'
+                              : 'No classes on this day.',
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: selectedDayItems.length,
+                        itemBuilder: (context, index) {
+                          final item = selectedDayItems[index];
+                          return ClassCard( // made a component here to make it cleaner 
+                            classData: item,
+                            onRegistered: _refreshClassList,
+                            isAlreadyRegistered: _showRegisteredOnly, // If showing registered only, user is definitely registered
+                          );
                         },
                         onEdit: (classItem) async {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit not implemented')));
