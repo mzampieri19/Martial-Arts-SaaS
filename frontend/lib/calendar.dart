@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'components/class_card.dart';
+import 'components/classes_list.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -225,6 +226,9 @@ class _CalendarPageState extends State<CalendarPage> {
                             isAlreadyRegistered: _showRegisteredOnly, // If showing registered only, user is definitely registered
                           );
                         },
+                        onEdit: (classItem) async {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit not implemented')));
+                        }, onTap: (p1) {  },
                       ),
               ),
             ],

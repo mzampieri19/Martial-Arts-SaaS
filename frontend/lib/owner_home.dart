@@ -6,6 +6,7 @@ import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
+import 'qr_check_in_page.dart';
 
 // Colors to be used in home page
 class AppColors {
@@ -91,42 +92,10 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,
               onCenterButtonTap: () {
-                // Handle center button tap - could open quick actions
-                showModalBottomSheet(
-                  context: context,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => Container(
-                    margin: EdgeInsets.all(AppConstants.spaceLg),
-                    padding: EdgeInsets.all(AppConstants.spaceLg),
-                    decoration: BoxDecoration(
-                      color: AppConstants.surfaceColor,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusXl),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Quick Actions', //This can be removed as well and just be made into one icon
-                          style: AppConstants.headingSm,
-                        ),
-                        SizedBox(height: AppConstants.spaceLg),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _QuickActionButton(
-                              icon: Icons.qr_code_scanner,
-                              label: 'Scan QR',
-                              onTap: () => Navigator.pop(context),
-                            ),
-                             _QuickActionButton(
-                              icon: Icons.qr_code_scanner,
-                              label: 'Can Add More Later',
-                              onTap: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const QRCheckInPage(),
                   ),
                 );
               },
