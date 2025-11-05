@@ -6,6 +6,7 @@ import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
 import 'qr_check_in_page.dart';
+import 'view_class_qr_codes_page.dart';
 
 // Colors to be used in home page
 class AppColors {
@@ -41,6 +42,78 @@ class _CoachHomePageState extends State<CoachHomePage> {
 
   void _navigateToNotifications() {
     // Navigate to notifications
+  }
+
+  /// Show quick action menu for coaches/owners
+  void _showQuickActionMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            const Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Action buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _QuickActionButton(
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: 'Scan QR Code',
+                  onTap: () {
+                    Navigator.pop(context); // Close bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const QRCheckInPage(),
+                      ),
+                    );
+                  },
+                ),
+                _QuickActionButton(
+                  icon: Icons.qr_code_2_rounded,
+                  label: 'View Class QR Codes',
+                  onTap: () {
+                    Navigator.pop(context); // Close bottom sheet
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ViewClassQRCodesPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
   }
 
   String _getPageTitle() {
@@ -90,14 +163,7 @@ class _CoachHomePageState extends State<CoachHomePage> {
             child: MartialArtsBottomNavigation(
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,
-              onCenterButtonTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const QRCheckInPage(),
-                  ),
-                );
-              },
+              onCenterButtonTap: () => _showQuickActionMenu(context),
             ),
           ),
         ],
@@ -212,7 +278,7 @@ class CoachHomeContentPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Create a New Class',
+          'Manage Classes',
           style: AppConstants.headingMd,
         ),
         SizedBox(height: AppConstants.spaceMd),
