@@ -3,6 +3,7 @@ import 'package:bottom_picker/bottom_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/components/classes_list.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'components/qr_code_display.dart';
 
 // Colors for UI
 class AppColors {
@@ -32,13 +33,51 @@ class _EditClassPageState extends State<EditClassPage> {
   }
 
   // Method to get all the classes from Supabase
+  // Filters by role: Owners see all classes, Coaches only see their assigned classes
   Future<void> _loadAllClasses() async {
     try {
-      final response = await _supabase
-          .from('classes')
-          .select();
-      // Handle the response and update state
-      final list = List<Map<String, dynamic>>.from(response as List<dynamic>? ?? []);
+      // First, get the current user's profile to check their role
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to view classes')),
+        );
+        return;
+      }
+
+      final profileResp = await _supabase
+          .from('profiles')
+          .select('Role, username')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      final role = profileResp?['Role']?.toString().toLowerCase();
+      final username = profileResp?['username']?.toString() ?? '';
+
+      // Build the query - filter by coach_assigned if user is a coach
+      List<Map<String, dynamic>> list;
+      
+      if (role == 'coach' && username.isNotEmpty) {
+        // Coach: only show classes where coach_assigned matches their username
+        // Fetch all classes first, then filter client-side to avoid type issues
+        final response = await _supabase
+            .from('classes')
+            .select('*, join_token');
+        final allClasses = List<Map<String, dynamic>>.from(response as List<dynamic>? ?? []);
+        
+        // Filter to only classes where coach_assigned matches username
+        list = allClasses.where((classItem) {
+          final coachAssigned = classItem['coach_assigned']?.toString().trim() ?? '';
+          return coachAssigned.toLowerCase() == username.toLowerCase().trim();
+        }).toList();
+      } else {
+        // Owner or other roles: show all classes (no filter)
+        final response = await _supabase
+            .from('classes')
+            .select('*, join_token');
+        list = List<Map<String, dynamic>>.from(response as List<dynamic>? ?? []);
+      }
+
       setState(() {
         _classes = list;
       });
@@ -138,17 +177,43 @@ class _EditClassPageState extends State<EditClassPage> {
 
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(builder: (context, setDialogState) {
           // coach/goal values are validated by the create-style UI below
 
-          return AlertDialog(
-            title: const Text('Edit Class'),
-            content: SingleChildScrollView(
+          return Dialog(
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Edit Class',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                   const SizedBox(height: 8),
 
                   // Class Name
@@ -336,6 +401,58 @@ class _EditClassPageState extends State<EditClassPage> {
                   TextField(controller: registeredCtrl, decoration: _bubbleDecoration('Registered Users (JSON)'), maxLines: 3),
                   const SizedBox(height: 30),
 
+                  // QR Code Display Section
+                  const Divider(height: 32),
+                  Builder(
+                    builder: (context) {
+                      // Debug: Check if join_token exists
+                      final joinToken = classItem['join_token'];
+                      print('DEBUG: join_token value: $joinToken');
+                      print('DEBUG: join_token type: ${joinToken.runtimeType}');
+                      
+                      if (joinToken != null && joinToken.toString().isNotEmpty) {
+                        return QRCodeDisplay(
+                          joinToken: joinToken.toString(),
+                          className: nameCtrl.text.isNotEmpty ? nameCtrl.text : classItem['class_name']?.toString(),
+                          size: 200,
+                        );
+                      } else {
+                        // Show a message if join_token is missing
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange[300]!),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 32),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No QR Code Available',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[900],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'This class does not have a join_token.\nGenerate one in your database.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange[700],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
                   // Save button (full width like Create page)
                   SizedBox(
                     width: double.infinity,
@@ -387,6 +504,11 @@ class _EditClassPageState extends State<EditClassPage> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: saving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save Class', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
                   ),
                 ],
