@@ -226,9 +226,9 @@ class _CalendarPageState extends State<CalendarPage> {
                             isAlreadyRegistered: _showRegisteredOnly, // If showing registered only, user is definitely registered
                           );
                         },
-                        onEdit: (classItem) async {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit not implemented')));
-                        }, onTap: (p1) {  },
+                        // onEdit: (classItem) async {
+                        //   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit not implemented')));
+                        // }, onTap: (p1) {  },
                       ),
               ),
             ],

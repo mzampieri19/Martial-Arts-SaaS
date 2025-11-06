@@ -204,6 +204,58 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
                 const SizedBox(height: AppConstants.spaceLg),
 
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppConstants.spaceLg),
+                  decoration: BoxDecoration(
+                    color: AppConstants.surfaceColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  ),
+                  child: ExpansionTile(
+                    title: Text('Finished Classes', style: AppConstants.headingSm.copyWith(color:AppConstants.textPrimary)),
+                    subtitle: Text('You have finished '+' classes!'),
+                    children: [
+                      // List of upcoming classes
+                    ],
+                  ),
+
+                ),
+
+                const SizedBox(height: AppConstants.spaceLg),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppConstants.spaceLg),
+                  decoration: BoxDecoration(
+                    color: AppConstants.surfaceColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  ),
+                  child: ExpansionTile(
+                    title: Text('Upcoming Classes', style: AppConstants.headingSm.copyWith(color:AppConstants.textPrimary)),
+                    subtitle: Text('You have'+' classes to attend!'),
+                    children: [
+                      final unattended_classes = supabase.,
+                      // List of upcoming classes, should have a toggle
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppConstants.spaceLg),
+
                 // Classes list
                 ...classes.map((classInfo) {
                   final className = classInfo['class_name'] ?? classInfo['name'] ?? 'Unnamed Class';
@@ -449,6 +501,29 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
     final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
     return classes;
+  }
+
+  Future<List<String>> _getUnattendedClasses() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view your account.')),
+      );
+      return [];
+    }
+
+    final rpcResp = await Supabase.instance.client.rpc('get_unattended_classes', params: {'p_user_id': userId});
+
+    final rows = List<Map<String, dynamic>>.from(rpcResp as List? ?? []);
+    for (final r in rows) {
+      final class_name = r['class_name'];
+      final coach_assigned = r['coach_assigned'];
+      final date = r['date'];
+    }
+
+    for 
+
+
   }
 
   // Fetch goals for each class and cache advancement values
