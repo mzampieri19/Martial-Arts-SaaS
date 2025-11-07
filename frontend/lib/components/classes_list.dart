@@ -15,7 +15,7 @@ class ClassesList extends StatelessWidget {
   final Function(dynamic) onRegister;
   final Function(dynamic) onUnregister;
   final Function(dynamic) onEdit;
-  // When false, action buttons (register/unregister/edit) will be hidden.
+  // When false action buttons (register/unregister/edit) will be hidden.
   final bool enableActions;
   // Choose how each class row is displayed.
   final ClassListType classListType;

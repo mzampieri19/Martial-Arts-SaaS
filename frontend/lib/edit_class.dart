@@ -67,17 +67,6 @@ class _EditClassPageState extends State<EditClassPage> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } 
-          // return ListView.builder(
-          //   itemCount: _classes.length,
-          //   itemBuilder: (context, index) {
-          //     final classItem = _classes[index];
-          //     return ListTile(
-          //       title: Text(classItem['class_name'] ?? 'No Name'),
-          //       subtitle: Text('Class ID: ${classItem['id']}'),
-          //       onTap: () => _showEditDialog(classItem),
-          //     );
-          //   },
-          // );
           return ClassesList(
             classes: _classes,
             onTap: (classItem) async {
