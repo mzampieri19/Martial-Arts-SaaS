@@ -167,6 +167,9 @@ class OwnerHomeContentPage extends StatelessWidget {
               'Welcome back, Owner!',
               style: AppConstants.headingLg,
             ),
+            SizedBox(height: AppConstants.spaceMd),
+            // Show attendees overview for owners
+            const AttendeesOverview(),
             SizedBox(height: AppConstants.spaceXl),
             _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceXl),

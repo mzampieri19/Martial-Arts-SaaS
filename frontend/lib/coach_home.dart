@@ -179,32 +179,8 @@ class CoachHomeContentPage extends StatelessWidget {
   }
 
   Widget _buildOverviewSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Today\'s Overview',
-          style: AppConstants.headingMd,
-        ),
-        SizedBox(height: AppConstants.spaceMd),
-        // Placeholder for overview content
-        Container(
-          height: 150,
-          decoration: BoxDecoration(
-            color: AppConstants.surfaceColor,
-            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
-          ),
-          child: Center(
-            child: Text(
-              'Overview Content Here',
-              style: AppConstants.bodyMd.copyWith(
-                color: AppConstants.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    // Use the shared attendees overview which will render only for coaches/owners
+    return const AttendeesOverview();
   }
 
   Widget _buildCreateClassSection(BuildContext context) {
