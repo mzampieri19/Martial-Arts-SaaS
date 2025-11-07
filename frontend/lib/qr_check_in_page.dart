@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class QRCheckInPage extends StatefulWidget {
   const QRCheckInPage({super.key});
@@ -29,17 +30,136 @@ class _QRCheckInPageState extends State<QRCheckInPage> {
 
     setState(() => isProcessing = true);
 
-    // TODO: Process the QR code - validate class and check user in
-    // For now, just show the detected code
-    _showQRResult(code);
+    // Process the QR code - extract join_token and check user in
+    _processQRCode(code);
   }
 
-  void _showQRResult(String qrData) {
+  /// Extract join_token from QR code URL and check user into the class
+  Future<void> _processQRCode(String qrData) async {
+    try {
+      // Parse the join_token from the URL
+      // Expected format: "martialartsapp://checkin/{join_token}"
+      String? joinToken;
+      
+      if (qrData.startsWith('martialartsapp://checkin/')) {
+        joinToken = qrData.replaceFirst('martialartsapp://checkin/', '').trim();
+      } else if (qrData.contains('checkin/')) {
+        // Alternative parsing if URL format is slightly different
+        final parts = qrData.split('checkin/');
+        if (parts.length > 1) {
+          joinToken = parts[1].trim();
+        }
+      } else {
+        // If it's just a UUID, assume it's the join_token directly
+        joinToken = qrData.trim();
+      }
+
+      if (joinToken == null || joinToken.isEmpty) {
+        _showError('Invalid QR code format');
+        return;
+      }
+
+      print('Extracted join_token: $joinToken');
+
+      // Get current user
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        _showError('Please log in to check in');
+        return;
+      }
+
+      // First, find the class by join_token
+      final classResponse = await supabase
+          .from('classes')
+          .select('id, class_name')
+          .eq('join_token', joinToken)
+          .maybeSingle();
+
+      if (classResponse == null) {
+        _showError('Invalid QR code. Class not found.');
+        return;
+      }
+
+      final classId = classResponse['id'] as int;
+      final className = classResponse['class_name'] as String? ?? 'the class';
+
+      print('Found class: $className (ID: $classId)');
+
+      // Try to insert attendance record
+      try {
+        await supabase.from('user_class_attendance').insert({
+          'user_id': user.id,
+          'class_id': classId,
+          'attended_at': DateTime.now().toIso8601String(),
+        });
+
+        _showSuccess('Successfully checked in to $className!');
+      } catch (e) {
+        final errorString = e.toString();
+        print('Check-in error: $errorString');
+        
+        // Check if it's a duplicate key error (already checked in)
+        if (errorString.contains('duplicate') || 
+            errorString.contains('unique') ||
+            errorString.contains('already exists') ||
+            errorString.contains('unique_user_class_date')) {
+          _showError('No - You have already checked in to $className today');
+        } else {
+          _showError('Error checking in: ${e.toString()}');
+        }
+      }
+    } catch (e) {
+      print('Error processing QR code: $e');
+      _showError('Error checking in: ${e.toString()}');
+    }
+  }
+
+  void _showSuccess(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('QR Code Detected'),
-        content: Text('Data: $qrData'),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 24),
+            SizedBox(width: 8),
+            Text('Success'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() => isProcessing = false);
+              Navigator.pop(context);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    ).then((_) {
+      setState(() => isProcessing = false);
+      // Navigate back after successful check-in
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      });
+    });
+  }
+
+  void _showError(String error) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text('Error'),
+          ],
+        ),
+        content: Text(error),
         actions: [
           TextButton(
             onPressed: () {
