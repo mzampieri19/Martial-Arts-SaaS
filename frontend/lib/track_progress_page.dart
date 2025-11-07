@@ -234,7 +234,7 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
                           final raw = snapshot.data;
                           final classes = (raw is List)? List<Map<String, dynamic>>.from(raw as List): <Map<String, dynamic>>[];
-                          if (classes.isEmpty) return const Center(child: Text('No finished classes found.'));
+                          if (classes.isEmpty) return const Center(child: Text('No upcoming classes found.'));
 
                           return Column(
                             children: classes.map((classInfo) => Card(
