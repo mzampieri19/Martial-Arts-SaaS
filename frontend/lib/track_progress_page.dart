@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
+import 'dart:convert';
 
 class TrackingProgressPage extends StatefulWidget {
   @override
@@ -198,6 +199,134 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                           ),
                         );
                       }),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppConstants.spaceLg),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppConstants.spaceLg),
+                  decoration: BoxDecoration(
+                    color: AppConstants.surfaceColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  ),
+                  child: ExpansionTile(
+                    title: Text('Finished Classes', style: AppConstants.headingSm.copyWith(color:AppConstants.textPrimary)),
+                    subtitle: Text('Click to view your finished classes.'),
+                    children: [
+                      FutureBuilder(
+                        future: _getAttendedClasses(), 
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return Text('Could not load classes: ${snapshot.error}');
+                          } 
+
+                          final raw = snapshot.data;
+                          final classes = (raw is List)? List<Map<String, dynamic>>.from(raw as List): <Map<String, dynamic>>[];
+                          if (classes.isEmpty) return const Center(child: Text('No upcoming classes found.'));
+
+                          return Column(
+                            children: classes.map((classInfo) => Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4.0),
+                              child: ListTile(
+                                title: Text(classInfo['class_name'] ?? 'Unnamed Class'),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (classInfo['date'] != null)
+                                      Text('Date: ${classInfo['date']}', 
+                                          style: AppConstants.bodySm),
+                                    if (classInfo['time'] != null)
+                                      Text('Time: ${classInfo['time']}', 
+                                          style: AppConstants.bodySm),
+                                    if (classInfo['coach_assigned'] != null)
+                                      Text('Coach: ${classInfo['coach_assigned']}', 
+                                          style: AppConstants.bodySm),
+                                  ],
+                                ),
+                                leading: const Icon(Icons.schedule),
+                              ),
+                            )).toList(),
+                          );
+                        }
+
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppConstants.spaceLg),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppConstants.spaceLg),
+                  decoration: BoxDecoration(
+                    color: AppConstants.surfaceColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusLg),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  ),
+                  child: ExpansionTile(
+                    title: Text('Upcoming Classes', style: AppConstants.headingSm.copyWith(color:AppConstants.textPrimary)),
+                    subtitle: Text('Click to view your upcoming classes.'),
+                    children: [
+                      FutureBuilder(
+                        future: _getUnattendedClasses(), 
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return Text('Could not load classes: ${snapshot.error}');
+                          } 
+
+                          final raw = snapshot.data;
+                          final classes = (raw is List)? List<Map<String, dynamic>>.from(raw as List): <Map<String, dynamic>>[];
+                          if (classes.isEmpty) return const Center(child: Text('No upcoming classes found.'));
+
+                          return Column(
+                            children: classes.map((classInfo) => Card(
+                              margin: const EdgeInsets.symmetric(vertical: 4.0),
+                              child: ListTile(
+                                title: Text(classInfo['class_name'] ?? 'Unnamed Class'),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (classInfo['date'] != null)
+                                      Text('Date: ${classInfo['date']}', 
+                                          style: AppConstants.bodySm),
+                                    if (classInfo['time'] != null)
+                                      Text('Time: ${classInfo['time']}', 
+                                          style: AppConstants.bodySm),
+                                    if (classInfo['coach_assigned'] != null)
+                                      Text('Coach: ${classInfo['coach_assigned']}', 
+                                          style: AppConstants.bodySm),
+                                  ],
+                                ),
+                                leading: const Icon(Icons.schedule),
+                              ),
+                            )).toList(),
+                          );
+                        }
+
+                      ),
                     ],
                   ),
                 ),
@@ -449,6 +578,95 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
 
     final classes = List<Map<String, dynamic>>.from(response as List? ?? []);
     return classes;
+  }
+
+  Future<List<Map<String, dynamic>>> _getAttendedClasses() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view your account.')),
+      );
+      return [];
+    }
+
+    try {
+      final rpcResp = await Supabase.instance.client.rpc('get_attended_classes', params: {'p_user_id': userId});
+
+      List<Map<String, dynamic>> results;
+          
+      if (rpcResp is List) {
+        results = List<Map<String, dynamic>>.from(rpcResp);
+       } else if (rpcResp is Map) {
+        // Handle the single object case and clean up the coach_assigned field
+        Map<String, dynamic> cleanedResult = Map<String, dynamic>.from(rpcResp);
+            
+        // Fix the coach_assigned field if it's a nested object
+        if (cleanedResult['coach_assigned'] is Map) {
+          final coachMap = cleanedResult['coach_assigned'] as Map;
+          if (coachMap.containsKey('Coach')) {
+            cleanedResult['coach_assigned'] = coachMap['Coach'];
+          } else {
+            // If the structure is different, take the first value
+            cleanedResult['coach_assigned'] = coachMap.values.first;
+          }
+        }
+        results = [cleanedResult];
+      } else {
+        print('Unexpected response type: ${rpcResp.runtimeType}');
+        return [];
+      }
+      return results;
+    } catch (e) {
+      print('Error fetching unattended classes: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getUnattendedClasses() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to view your account.')),
+      );
+      return [];
+    }
+
+    try {
+      final rpcResp = await Supabase
+          .instance
+          .client
+          .rpc('get_unattended_classes', params: {'p_user_id': userId});
+
+      List<Map<String, dynamic>> results;
+      
+      if (rpcResp is List) {
+        results = List<Map<String, dynamic>>.from(rpcResp);
+      } else if (rpcResp is Map) {
+        // Handle the single object case and clean up the coach_assigned field
+        Map<String, dynamic> cleanedResult = Map<String, dynamic>.from(rpcResp);
+        
+        // Fix the coach_assigned field if it's a nested object
+        if (cleanedResult['coach_assigned'] is Map) {
+          final coachMap = cleanedResult['coach_assigned'] as Map;
+          if (coachMap.containsKey('Coach')) {
+            cleanedResult['coach_assigned'] = coachMap['Coach'];
+          } else {
+            // If the structure is different, take the first value
+            cleanedResult['coach_assigned'] = coachMap.values.first;
+          }
+        }
+        
+        results = [cleanedResult];
+      } else {
+        print('Unexpected response type: ${rpcResp.runtimeType}');
+        return [];
+      }
+
+      return results;
+    } catch (e) {
+      print('Error fetching unattended classes: $e');
+      return [];
+    }
   }
 
   // Fetch goals for each class and cache advancement values
