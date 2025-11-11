@@ -53,36 +53,72 @@ class _StudentsOverviewState extends State<StudentsOverview> {
           registeredCount = 0;
         }
 
-  // goals completed
-      List<Map<String, dynamic>> compList = [];
-        try {
-          final comps = await supabase.from('user_goal_completions').select('id, progress').eq('user_id', userId.toString());
-          compList = List<Map<String, dynamic>>.from(comps as List? ?? []);
-        } catch (e) {
-          // ignore: avoid_print
-          print('user_goal_completions fetch failed for user_id=$userId: $e');
-          compList = [];
-        }
-        final goalsCompleted = compList.where((c) {
-          final prog = c['progress'];
-          if (prog is int) return prog > 0;
-          if (prog is String) return int.tryParse(prog) != null && int.parse(prog) > 0;
-          return false;
-        }).length;
-
-        // attendance counts — use `user_class_attendance.user_id` table
+        int goalsCompleted = 0;
         int totalAttendance = 0;
+
+        // Attempt to call an admin RPC that returns a single integer: completed goals
         try {
-          final attResp = await supabase
-              .from('user_class_attendance')
-              .select('id')
-              .eq('user_id', userId.toString());
-          final attList = attResp as List?;
-          totalAttendance = attList?.length ?? 0;
-        } catch (e) {
-          // ignore: avoid_print
-          print('user_class_attendance fetch failed for user_id=$userId: $e');
-          totalAttendance = 0;
+          final rpcGoals = await supabase.rpc('get_user_goals_completed_admin', params: {'p_user_id': userId.toString()});
+          // RPC may return a scalar int or a single-row list/map depending on implementation
+          if (rpcGoals is int) {
+            goalsCompleted = rpcGoals;
+          } else if (rpcGoals is List && rpcGoals.isNotEmpty) {
+            final first = rpcGoals.first;
+            if (first is Map && first.values.isNotEmpty) {
+              final val = first.values.first;
+              if (val is int) goalsCompleted = val;
+              if (val is String) goalsCompleted = int.tryParse(val) ?? 0;
+            } else if (first is int) {
+              goalsCompleted = first;
+            }
+          }
+        } catch (_) {
+          // rpc not available or blocked by RLS — fall back to per-row select
+          try {
+            final comps = await supabase.from('user_goal_completions').select('id, progress').eq('user_id', userId.toString());
+            final compList = List<Map<String, dynamic>>.from(comps as List? ?? []);
+            goalsCompleted = compList.where((c) {
+              final prog = c['progress'];
+              if (prog is int) return prog > 0;
+              if (prog is String) return int.tryParse(prog) != null && int.parse(prog) > 0;
+              return false;
+            }).length;
+          } catch (e) {
+            // ignore: avoid_print
+            print('user_goal_completions fetch failed for user_id=$userId: $e');
+            goalsCompleted = 0;
+          }
+        }
+
+        // Attempt to call an admin RPC that returns per-class stats (includes attended_count)
+        try {
+          final rpcAtt = await supabase.rpc('get_user_class_stats_admin', params: {'p_user_id': userId.toString()});
+          final rpcList = rpcAtt as List?;
+          if (rpcList != null && rpcList.isNotEmpty) {
+            for (final r in rpcList) {
+              if (r is Map) {
+                final cnt = r['attended_count'] ?? r['attended'] ?? r['attended_count'];
+                if (cnt is int) totalAttendance += cnt;
+                if (cnt is String) totalAttendance += int.tryParse(cnt) ?? 0;
+              }
+            }
+          } else {
+            // fall back to direct select (may return 0 if RLS prevents access)
+            final attResp = await supabase.from('user_class_attendance').select('id').eq('user_id', userId.toString());
+            final attList = attResp as List?;
+            totalAttendance = attList?.length ?? 0;
+          }
+        } catch (_) {
+          // rpc unavailable or blocked — fall back
+          try {
+            final attResp = await supabase.from('user_class_attendance').select('id').eq('user_id', userId.toString());
+            final attList = attResp as List?;
+            totalAttendance = attList?.length ?? 0;
+          } catch (e) {
+            // ignore: avoid_print
+            print('user_class_attendance fetch failed for user_id=$userId: $e');
+            totalAttendance = 0;
+          }
         }
 
         studentsData.add({
@@ -151,11 +187,11 @@ class _StudentsOverviewState extends State<StudentsOverview> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text('$reg classes', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+                            Text('$reg classes registered', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
                             const SizedBox(width: 12),
-                            Text('$att attendances', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+                            Text('$att classes attended', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
                             const SizedBox(width: 12),
-                            Text('$goals goals', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+                            Text('$goals goals mastered', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
                           ],
                         ),
                         const SizedBox(height: 6),
