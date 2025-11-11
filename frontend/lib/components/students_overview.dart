@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/app_constants.dart';
 
+// Widget to display an overview of students with their stats
+
 class StudentsOverview extends StatefulWidget {
   const StudentsOverview({super.key});
 
@@ -19,19 +21,19 @@ class _StudentsOverviewState extends State<StudentsOverview> {
     _loadStudentsOverview();
   }
 
+  // Load students and their stats from Supabase
   Future<void> _loadStudentsOverview() async {
     setState(() => _loading = true);
     final supabase = Supabase.instance.client;
 
     try {
-      // fetch all student profiles
+      // fetch all STUDENT profiles
       final profilesResp = await supabase.from('profiles').select('id, username, avatar_url, full_name, Role');
       final profiles = List<Map<String, dynamic>>.from(profilesResp as List? ?? []);
 
-      print(profiles);
-
       final List<Map<String, dynamic>> studentsData = [];
 
+      // fetch stats per student
       for (final p in profiles) {
         final role = (p['Role'] as String?)?.toLowerCase() ?? '';
         if (role != 'student') continue;
@@ -48,7 +50,6 @@ class _StudentsOverviewState extends State<StudentsOverview> {
           final regList = regResp as List?;
           registeredCount = regList?.length ?? 0;
         } catch (e) {
-          // ignore: avoid_print
           print('student_classes fetch failed for profile_id=$userId: $e');
           registeredCount = 0;
         }
@@ -56,10 +57,9 @@ class _StudentsOverviewState extends State<StudentsOverview> {
         int goalsCompleted = 0;
         int totalAttendance = 0;
 
-        // Attempt to call an admin RPC that returns a single integer: completed goals
+        // fetch goals completed count
         try {
           final rpcGoals = await supabase.rpc('get_user_goals_completed_admin', params: {'p_user_id': userId.toString()});
-          // RPC may return a scalar int or a single-row list/map depending on implementation
           if (rpcGoals is int) {
             goalsCompleted = rpcGoals;
           } else if (rpcGoals is List && rpcGoals.isNotEmpty) {
@@ -73,7 +73,6 @@ class _StudentsOverviewState extends State<StudentsOverview> {
             }
           }
         } catch (_) {
-          // rpc not available or blocked by RLS — fall back to per-row select
           try {
             final comps = await supabase.from('user_goal_completions').select('id, progress').eq('user_id', userId.toString());
             final compList = List<Map<String, dynamic>>.from(comps as List? ?? []);
@@ -84,13 +83,11 @@ class _StudentsOverviewState extends State<StudentsOverview> {
               return false;
             }).length;
           } catch (e) {
-            // ignore: avoid_print
             print('user_goal_completions fetch failed for user_id=$userId: $e');
             goalsCompleted = 0;
           }
         }
-
-        // Attempt to call an admin RPC that returns per-class stats (includes attended_count)
+        // fetch attendance count
         try {
           final rpcAtt = await supabase.rpc('get_user_class_stats_admin', params: {'p_user_id': userId.toString()});
           final rpcList = rpcAtt as List?;
@@ -103,24 +100,21 @@ class _StudentsOverviewState extends State<StudentsOverview> {
               }
             }
           } else {
-            // fall back to direct select (may return 0 if RLS prevents access)
             final attResp = await supabase.from('user_class_attendance').select('id').eq('user_id', userId.toString());
             final attList = attResp as List?;
             totalAttendance = attList?.length ?? 0;
           }
         } catch (_) {
-          // rpc unavailable or blocked — fall back
           try {
             final attResp = await supabase.from('user_class_attendance').select('id').eq('user_id', userId.toString());
             final attList = attResp as List?;
             totalAttendance = attList?.length ?? 0;
           } catch (e) {
-            // ignore: avoid_print
             print('user_class_attendance fetch failed for user_id=$userId: $e');
             totalAttendance = 0;
           }
         }
-
+        // combine all data
         studentsData.add({
           'id': userId,
           'username': p['username'] ?? 'User',
@@ -144,6 +138,7 @@ class _StudentsOverviewState extends State<StudentsOverview> {
   }
 
   @override
+  // Build the widget UI
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_students.isEmpty) return const SizedBox.shrink();
