@@ -1,129 +1,318 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../constants/app_constants.dart';
+// import 'package:flutter/material.dart';
+// import 'package:supabase_flutter/supabase_flutter.dart';
+// import '../constants/app_constants.dart';
+//   }
+// }
 
-class AttendeesOverview extends StatefulWidget {
-  const AttendeesOverview({super.key});
+//   @override
+//   State<AttendeesOverview> createState() => _AttendeesOverviewState();
+// }
 
-  @override
-  State<AttendeesOverview> createState() => _AttendeesOverviewState();
-}
+// class _AttendeesOverviewState extends State<AttendeesOverview> {
+//   bool _loading = true;
+//   List<Map<String, dynamic>> _students = [];
 
-class _AttendeesOverviewState extends State<AttendeesOverview> {
-  bool _loading = true;
-  Map<String, List<Map<String, dynamic>>> _grouped = {};
+//   @override
+//   void initState() {
+//     super.initState();
+//     _loadStudentsOverview();
+//   }
 
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
+//   Future<void> _loadStudentsOverview() async {
+//     setState(() => _loading = true);
+//     final supabase = Supabase.instance.client;
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-    if (user == null) {
-      setState(() {
-        _grouped = {};
-        _loading = false;
-      });
-      return;
-    }
+//     try {
+//       // fetch all student profiles
+//       final profilesResp = await supabase.from('profiles').select('id, username, avatar_url, full_name, Role');
+//       final profiles = List<Map<String, dynamic>>.from(profilesResp as List? ?? []);
 
-    try {
-      final profile = await supabase.from('profiles').select('username, Role').eq('id', user.id).maybeSingle();
-      final role = (profile?['Role'] as String?)?.toLowerCase() ?? 'student';
-      final username = profile?['username'] as String?;
+//       final List<Map<String, dynamic>> studentsData = [];
 
-      List<Map<String, dynamic>> classes = [];
-      if (role == 'coach' && username != null) {
-        final classesResp = await supabase.from('classes').select('id, class_name').eq('coach_assigned', username);
-        classes = List<Map<String, dynamic>>.from(classesResp as List? ?? []);
-      } else if (role == 'owner') {
-        final classesResp = await supabase.from('classes').select('id, class_name');
-        classes = List<Map<String, dynamic>>.from(classesResp as List? ?? []);
-      } else {
-        classes = [];
-      }
+//       for (final p in profiles) {
+//         final role = (p['Role'] as String?)?.toLowerCase() ?? '';
+//         if (role != 'student') continue;
 
-      final Map<String, List<Map<String, dynamic>>> grouped = {};
-      for (final c in classes) {
-        final cid = c['id'];
-        final cname = c['class_name'] ?? 'Unnamed Class';
-        try {
-          final regs = await supabase.from('student_classes').select('*, profiles(username, avatar_url)').eq('class_id', cid);
-          final regsList = List<Map<String, dynamic>>.from(regs as List? ?? []);
-          if (regsList.isNotEmpty) grouped[cname] = regsList;
-        } catch (_) {}
-      }
+//         final userId = p['id'] as String?;
+//         if (userId == null) continue;
 
-      if (mounted) setState(() {
-        _grouped = grouped;
-        _loading = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() {
-        _grouped = {};
-        _loading = false;
-      });
-    }
-  }
+//         // registered classes
+//         final regs = await supabase.from('student_classes').select('id').eq('user_id', userId);
+//         final registeredCount = (regs as List?)?.length ?? 0;
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_grouped.isEmpty) return const SizedBox.shrink();
+//         // goals completed
+//         final comps = await supabase.from('user_goal_completions').select('id, progress').eq('user_id', userId);
+//         final compList = List<Map<String, dynamic>>.from(comps as List? ?? []);
+//         final goalsCompleted = compList.where((c) {
+//           final p = c['progress'];
+//           if (p is int) return p > 0;
+//           if (p is String) return int.tryParse(p) != null && int.parse(p) > 0;
+//           return false;
+//         }).length;
+// import 'package:flutter/material.dart';
+// import 'package:supabase_flutter/supabase_flutter.dart';
+// import '../constants/app_constants.dart';
 
-    return Container(
-      padding: EdgeInsets.all(AppConstants.spaceMd),
-      decoration: BoxDecoration(
-        color: AppConstants.surfaceColor,
-        borderRadius: BorderRadius.circular(AppConstants.radiusMd),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Attendees Overview', style: AppConstants.headingSm.copyWith(color: AppConstants.textPrimary)),
-          const SizedBox(height: 8),
-          ..._grouped.entries.map((entry) {
-            final className = entry.key;
-            final attendees = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 4.0),
-                title: Row(
-                  children: [
-                    Expanded(child: Text(className, style: AppConstants.labelLg.copyWith(fontWeight: FontWeight.w600))),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppConstants.primaryColor.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text('${attendees.length} registered', style: AppConstants.labelSm.copyWith(color: AppConstants.textSecondary)),
-                    ),
-                  ],
-                ),
-                children: attendees.map((a) {
-                  final username = a['profiles']?['username'] ?? a['username'] ?? 'User';
-                  final avatar = a['profiles']?['avatar_url'] as String?;
-                  final avatarUrl = (avatar != null && avatar.isNotEmpty)
-                      ? Supabase.instance.client.storage.from('avatars').getPublicUrl(avatar)
-                      : 'https://i.postimg.cc/cCsYDjvj/user-2.png';
-                  return ListTile(
-                    leading: CircleAvatar(backgroundImage: NetworkImage(avatarUrl)),
-                    title: Text(username, style: AppConstants.bodyMd.copyWith(color: AppConstants.textPrimary)),
-                    subtitle: Text('Registered: ${a['created_at'] ?? ''}', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
-                  );
-                }).toList(),
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-}
+// class AttendeesOverview extends StatefulWidget {
+//   const AttendeesOverview({super.key});
+
+//   @override
+//   State<AttendeesOverview> createState() => _AttendeesOverviewState();
+// }
+
+// class _AttendeesOverviewState extends State<AttendeesOverview> {
+//   bool _loading = true;
+//   List<Map<String, dynamic>> _students = [];
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _loadStudentsOverview();
+//   }
+
+//   Future<void> _loadStudentsOverview() async {
+//     setState(() => _loading = true);
+//     final supabase = Supabase.instance.client;
+
+//     try {
+//       // fetch all student profiles
+//       final profilesResp = await supabase.from('profiles').select('id, username, avatar_url, full_name, Role');
+//       final profiles = List<Map<String, dynamic>>.from(profilesResp as List? ?? []);
+
+//       final List<Map<String, dynamic>> studentsData = [];
+
+//       for (final p in profiles) {
+//         final role = (p['Role'] as String?)?.toLowerCase() ?? '';
+//         if (role != 'student') continue;
+
+//         final userId = p['id'] as String?;
+//         if (userId == null) continue;
+
+//         // registered classes
+//         final regs = await supabase.from('student_classes').select('id').eq('user_id', userId);
+//         final registeredCount = (regs as List?)?.length ?? 0;
+
+//         // goals completed
+//         final comps = await supabase.from('user_goal_completions').select('id, progress').eq('user_id', userId);
+//         final compList = List<Map<String, dynamic>>.from(comps as List? ?? []);
+//         final goalsCompleted = compList.where((c) {
+//           final p = c['progress'];
+//           if (p is int) return p > 0;
+//           if (p is String) return int.tryParse(p) != null && int.parse(p) > 0;
+//           return false;
+//         }).length;
+
+//         // attendance counts (rpc returns list of {class_id, cnt})
+//         int totalAttendance = 0;
+//         try {
+//           final attResp = await supabase.rpc('get_user_attendance_counts', params: {'p_user_id': userId});
+//           final attList = List<Map<String, dynamic>>.from(attResp as List? ?? []);
+//           for (final a in attList) {
+//             final cnt = a['cnt'] ?? a['count'] ?? a['attendance_count'];
+//             if (cnt is int) totalAttendance += cnt;
+//             if (cnt is String) totalAttendance += int.tryParse(cnt) ?? 0;
+//           }
+//         } catch (_) {}
+
+//         studentsData.add({
+//           'id': userId,
+//           'username': p['username'] ?? p['full_name'] ?? 'User',
+//           'avatar_url': p['avatar_url'] as String?,
+//           'registered': registeredCount,
+//           'attendance': totalAttendance,
+//           'goals_completed': goalsCompleted,
+//         });
+//       }
+
+//       if (mounted) {
+//         setState(() {
+//           _students = studentsData;
+//           _loading = false;
+//         });
+//       }
+//     } catch (e) {
+//       if (mounted) setState(() { _students = []; _loading = false; });
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     if (_loading) return const Center(child: CircularProgressIndicator());
+//     if (_students.isEmpty) return const SizedBox.shrink();
+
+//     return Container(
+//       padding: EdgeInsets.all(AppConstants.spaceMd),
+//       decoration: BoxDecoration(
+//         color: AppConstants.surfaceColor,
+//         borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Text('Students Overview', style: AppConstants.headingSm.copyWith(color: AppConstants.textPrimary)),
+//           const SizedBox(height: 8),
+//           ..._students.map((s) {
+//             final avatar = s['avatar_url'] as String?;
+//             final avatarUrl = (avatar != null && avatar.isNotEmpty)
+//                 ? Supabase.instance.client.storage.from('avatars').getPublicUrl(avatar)
+//                 : 'https://i.postimg.cc/cCsYDjvj/user-2.png';
+// import 'package:flutter/material.dart';
+// import 'package:supabase_flutter/supabase_flutter.dart';
+// import '../constants/app_constants.dart';
+
+// class AttendeesOverview extends StatefulWidget {
+//   const AttendeesOverview({super.key});
+
+//   @override
+//   State<AttendeesOverview> createState() => _AttendeesOverviewState();
+// }
+
+// class _AttendeesOverviewState extends State<AttendeesOverview> {
+//   bool _loading = true;
+//   List<Map<String, dynamic>> _students = [];
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _loadStudentsOverview();
+//   }
+
+//   Future<void> _loadStudentsOverview() async {
+//     setState(() => _loading = true);
+//     final supabase = Supabase.instance.client;
+
+//     try {
+//       // fetch all student profiles
+//       final profilesResp = await supabase.from('profiles').select('id, username, avatar_url, full_name, Role');
+//       final profiles = List<Map<String, dynamic>>.from(profilesResp as List? ?? []);
+
+//       final List<Map<String, dynamic>> studentsData = [];
+
+//       for (final p in profiles) {
+//         final role = (p['Role'] as String?)?.toLowerCase() ?? '';
+//         if (role != 'student') continue;
+
+//         final userId = p['id'] as String?;
+//         if (userId == null) continue;
+
+//         // registered classes
+//         final regs = await supabase.from('student_classes').select('id').eq('user_id', userId);
+//         final registeredCount = (regs as List?)?.length ?? 0;
+
+//         // goals completed
+//         final comps = await supabase.from('user_goal_completions').select('id, progress').eq('user_id', userId);
+//         final compList = List<Map<String, dynamic>>.from(comps as List? ?? []);
+//         final goalsCompleted = compList.where((c) {
+//           final p = c['progress'];
+//           if (p is int) return p > 0;
+//           if (p is String) return int.tryParse(p) != null && int.parse(p) > 0;
+//           return false;
+//         }).length;
+
+//         // attendance counts (rpc returns list of {class_id, cnt})
+//         int totalAttendance = 0;
+//         try {
+//           final attResp = await supabase.rpc('get_user_attendance_counts', params: {'p_user_id': userId});
+//           final attList = List<Map<String, dynamic>>.from(attResp as List? ?? []);
+//           for (final a in attList) {
+//             final cnt = a['cnt'] ?? a['count'] ?? a['attendance_count'];
+//             if (cnt is int) totalAttendance += cnt;
+//             if (cnt is String) totalAttendance += int.tryParse(cnt) ?? 0;
+//           }
+//         } catch (_) {}
+
+//         studentsData.add({
+//           'id': userId,
+//           'username': p['username'] ?? p['full_name'] ?? 'User',
+//           'avatar_url': p['avatar_url'] as String?,
+//           'registered': registeredCount,
+//           'attendance': totalAttendance,
+//           'goals_completed': goalsCompleted,
+//         });
+//       }
+
+//       if (mounted) {
+//         setState(() {
+//           _students = studentsData;
+//           _loading = false;
+//         });
+//       }
+//     } catch (e) {
+//       if (mounted) setState(() { _students = []; _loading = false; });
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     if (_loading) return const Center(child: CircularProgressIndicator());
+//     if (_students.isEmpty) return const SizedBox.shrink();
+
+//     return Container(
+//       padding: EdgeInsets.all(AppConstants.spaceMd),
+//       decoration: BoxDecoration(
+//         color: AppConstants.surfaceColor,
+//         borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Text('Students Overview', style: AppConstants.headingSm.copyWith(color: AppConstants.textPrimary)),
+//           const SizedBox(height: 8),
+//           ..._students.map((s) {
+//             final avatar = s['avatar_url'] as String?;
+//             final avatarUrl = (avatar != null && avatar.isNotEmpty)
+//                 ? Supabase.instance.client.storage.from('avatars').getPublicUrl(avatar)
+//                 : 'https://i.postimg.cc/cCsYDjvj/user-2.png';
+
+//             final username = s['username'] as String? ?? 'User';
+//             final reg = s['registered'] as int? ?? 0;
+//             final att = s['attendance'] as int? ?? 0;
+//             final goals = s['goals_completed'] as int? ?? 0;
+
+//             // simple progress metric (goals completed normalized by registered classes)
+//             final double progressScore = ((goals.toDouble()) / (reg == 0 ? 1.0 : reg.toDouble())).clamp(0.0, 1.0).toDouble();
+
+//             return Padding(
+//               padding: const EdgeInsets.only(bottom: 12.0),
+//               child: Row(
+//                 children: [
+//                   CircleAvatar(radius: 22, backgroundImage: NetworkImage(avatarUrl)),
+//                   const SizedBox(width: 12),
+//                   Expanded(
+//                     child: Column(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         Text(username, style: AppConstants.bodyMd.copyWith(color: AppConstants.textPrimary)),
+//                         const SizedBox(height: 4),
+//                         Row(
+//                           children: [
+//                             Text('$reg classes', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+//                             const SizedBox(width: 12),
+//                             Text('$att attendances', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+//                             const SizedBox(width: 12),
+//                             Text('$goals goals', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+//                           ],
+//                         ),
+//                         const SizedBox(height: 6),
+//                         ClipRRect(
+//                           borderRadius: BorderRadius.circular(6),
+//                           child: LinearProgressIndicator(
+//                             value: progressScore,
+//                             minHeight: 8,
+//                             backgroundColor: AppConstants.primaryColor.withOpacity(0.12),
+//                             valueColor: AlwaysStoppedAnimation(AppConstants.primaryColor),
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//             );
+//           }).toList(),
+//         ],
+//       ),
+//     );
+//   }
+// }
+//               }

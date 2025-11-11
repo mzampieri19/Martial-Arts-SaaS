@@ -5,4 +5,4 @@ export 'app_card.dart' hide ClassCard; // this is for a naming conflict with the
 export 'app_bar.dart';
 export 'app_bottom_navigation.dart';
 export 'class_card.dart';
-export 'attendees_overview.dart';
+export 'students_overview.dart';

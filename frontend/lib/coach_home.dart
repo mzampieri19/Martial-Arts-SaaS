@@ -5,6 +5,7 @@ import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
+import 'components/students_overview.dart';
 import 'qr_check_in_page.dart';
 
 // Colors to be used in home page
@@ -167,7 +168,7 @@ class CoachHomeContentPage extends StatelessWidget {
               style: AppConstants.headingLg,
             ),
             SizedBox(height: AppConstants.spaceMd),
-            _buildOverviewSection(),
+            const StudentsOverview(),
             SizedBox(height: AppConstants.spaceXl),
             _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceXl),
@@ -176,11 +177,6 @@ class CoachHomeContentPage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Widget _buildOverviewSection() {
-    // Use the shared attendees overview which will render only for coaches/owners
-    return const AttendeesOverview();
   }
 
   Widget _buildCreateClassSection(BuildContext context) {
