@@ -6,6 +6,7 @@ import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
+import 'components/students_overview.dart';
 import 'qr_check_in_page.dart';
 import 'view_class_qr_codes_page.dart';
 
@@ -233,10 +234,10 @@ class OwnerHomeContentPage extends StatelessWidget {
               'Welcome back, Owner!',
               style: AppConstants.headingLg,
             ),
+            SizedBox(height: AppConstants.spaceMd),
+            const StudentsOverview(),
             SizedBox(height: AppConstants.spaceXl),
             _buildCreateClassSection(context),
-            SizedBox(height: AppConstants.spaceXl),
-            _buildManageBusinessSection(),
             SizedBox(height: AppConstants.spaceXl),
             _buildViewMembersSection(),
             SizedBox(height: AppConstants.spaceXl),
@@ -244,34 +245,6 @@ class OwnerHomeContentPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildManageBusinessSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Manage Your Business',
-          style: AppConstants.headingMd,
-        ),
-        SizedBox(height: AppConstants.spaceMd),
-        // Placeholder for manage business content
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppConstants.surfaceColor,
-            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-          ),
-          child: Center(
-            child: Text(
-              'Business Management Tools Coming Soon!',
-              style: AppConstants.labelMd,
-            ),
-          ),
-        ),
-      ],
     );
   }
 

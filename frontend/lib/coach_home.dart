@@ -5,6 +5,7 @@ import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
+import 'components/students_overview.dart';
 import 'qr_check_in_page.dart';
 import 'view_class_qr_codes_page.dart';
 
@@ -233,7 +234,7 @@ class CoachHomeContentPage extends StatelessWidget {
               style: AppConstants.headingLg,
             ),
             SizedBox(height: AppConstants.spaceMd),
-            _buildOverviewSection(),
+            const StudentsOverview(),
             SizedBox(height: AppConstants.spaceXl),
             _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceXl),
@@ -241,35 +242,6 @@ class CoachHomeContentPage extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildOverviewSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Today\'s Overview',
-          style: AppConstants.headingMd,
-        ),
-        SizedBox(height: AppConstants.spaceMd),
-        // Placeholder for overview content
-        Container(
-          height: 150,
-          decoration: BoxDecoration(
-            color: AppConstants.surfaceColor,
-            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
-          ),
-          child: Center(
-            child: Text(
-              'Overview Content Here',
-              style: AppConstants.bodyMd.copyWith(
-                color: AppConstants.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
