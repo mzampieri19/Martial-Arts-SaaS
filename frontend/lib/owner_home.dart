@@ -3,6 +3,7 @@ import 'package:frontend/create_classes.dart';
 import 'package:frontend/edit_class.dart';
 import 'profile.dart';
 import 'announcements.dart';
+import 'create_announcement.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
@@ -239,66 +240,31 @@ class OwnerHomeContentPage extends StatelessWidget {
             SizedBox(height: AppConstants.spaceXl),
             _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceXl),
-            _buildViewMembersSection(),
-            SizedBox(height: AppConstants.spaceXl),
-            _buildViewCoachesSection(),
+            _buildCreateAnnouncementSection(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildViewMembersSection() {
+  Widget _buildCreateAnnouncementSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'View Members',
+          'Create a New Announcement',
           style: AppConstants.headingMd,
         ),
         SizedBox(height: AppConstants.spaceMd),
-        // Placeholder for view members content
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppConstants.surfaceColor,
-            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-          ),
-          child: Center(
-            child: Text(
-              'Member List Coming Soon!',
-              style: AppConstants.labelMd,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildViewCoachesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'View Coaches',
-          style: AppConstants.headingMd,
-        ),
-        SizedBox(height: AppConstants.spaceMd),
-        // Placeholder for view coaches content
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppConstants.surfaceColor,
-            borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-          ),
-          child: Center(
-            child: Text(
-              'Coach List Coming Soon!',
-              style: AppConstants.labelMd,
-            ),
-          ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const CreateAnnouncementPage(),
+              ),
+            );
+          },
+          child: const Text('Create Announcement'),
         ),
       ],
     );
