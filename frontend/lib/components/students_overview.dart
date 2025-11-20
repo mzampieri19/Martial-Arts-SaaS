@@ -182,11 +182,29 @@ class _StudentsOverviewState extends State<StudentsOverview> {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text('$reg classes registered', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+                            Flexible(
+                              child: Text(
+                                '$reg classes registered',
+                                style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             const SizedBox(width: 12),
-                            Text('$att classes attended', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+                            Flexible(
+                              child: Text(
+                                '$att classes attended',
+                                style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             const SizedBox(width: 12),
-                            Text('$goals goals mastered', style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary)),
+                            Flexible(
+                              child: Text(
+                                '$goals goals mastered',
+                                style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 6),
