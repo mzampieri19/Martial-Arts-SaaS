@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:bottom_picker/bottom_picker.dart';
 import 'package:bottom_picker/resources/time.dart';
+import 'package:intl/intl.dart';
 
 class AppColors {
   static const primaryBlue = Color(0xFFDD886C);
@@ -25,6 +26,7 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
   final TextEditingController _coachAssignedController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
+  final TextEditingController _endDateController = TextEditingController();
   final TextEditingController _difficultyController = TextEditingController();
   final TextEditingController _typeOfClassController = TextEditingController();
   final TextEditingController _registeredUsersController = TextEditingController();
@@ -34,6 +36,16 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
   int? _selectedDifficulty;
   int? _selectedClassType;
   bool? _selectedRecurring;
+  final Set<int> _selectedWeekdays = {};
+  final List<Map<String, dynamic>> _weekdayOptions = const [
+    {'label': 'Sun', 'value': DateTime.sunday},
+    {'label': 'Mon', 'value': DateTime.monday},
+    {'label': 'Tue', 'value': DateTime.tuesday},
+    {'label': 'Wed', 'value': DateTime.wednesday},
+    {'label': 'Thu', 'value': DateTime.thursday},
+    {'label': 'Fri', 'value': DateTime.friday},
+    {'label': 'Sat', 'value': DateTime.saturday},
+  ];
 
   final Map<int, String> _classTypes = const {
     1: 'TaeKwonDo',
@@ -43,27 +55,10 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
     5: 'Other'
   };
   
-  late List<Map<String, dynamic>> _coaches;
-
   @override
   void initState() {
     super.initState();
     _loadGoals();
-    _loadCoaches();
-  }
-
-  // fetches list of coaches from Supabase
-  Future<void> _loadCoaches() async {
-    try {
-      final resp = await _supabase
-          .from('profiles')
-          .select('username, Role');
-      final list = List<Map<String, dynamic>>.from(resp as List? ?? []);
-      // You can use this list to populate a dropdown or autocomplete for coach selection
-      setState(() {
-        _coaches = list;
-      });
-    } catch (_) {}
   }
 
   Future<void> _loadGoals() async {
@@ -87,10 +82,11 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
     final typeOfClass = _selectedClassType ?? 0;
     final registeredUsersText = _registeredUsersController.text.trim();
 
-    Map<String, dynamic>? registeredUsers;
+    Map<String, dynamic> registeredUsers;
     if (registeredUsersText.isNotEmpty) {
       try {
-        registeredUsers = jsonDecode(registeredUsersText) as Map<String, dynamic>;
+        registeredUsers = Map<String, dynamic>.from(
+            jsonDecode(registeredUsersText) as Map<String, dynamic>);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Invalid JSON format for registered users')),
@@ -108,31 +104,124 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
       return;
     }
 
+    final dateFormatter = DateFormat('MM-dd-yyyy');
+    late DateTime startDate;
     try {
-      final insertResp = await _supabase.from('classes').insert({
+      startDate = dateFormatter.parseStrict(date);
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid start date')),
+      );
+      return;
+    }
+
+    DateTime? endDate;
+    if (recurring) {
+      if (_selectedWeekdays.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Select at least one weekday for recurring classes')),
+        );
+        return;
+      }
+      final endDateText = _endDateController.text.trim();
+      if (endDateText.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select an end date for recurring classes')),
+        );
+        return;
+      }
+      try {
+        endDate = dateFormatter.parseStrict(endDateText);
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid end date')),
+        );
+        return;
+      }
+      if (endDate.isBefore(startDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('End date must be after start date')),
+        );
+        return;
+      }
+    }
+
+    final List<Map<String, dynamic>> classesToInsert = [];
+
+    if (recurring && endDate != null) {
+      // Always add the original class date first
+      classesToInsert.add({
         'class_name': className,
         'coach_assigned': coachAssigned,
-        'date': date,
+        'date': dateFormatter.format(startDate),
         'time': time,
         'difficulty': difficulty,
-        'reccuring': recurring,
+        'reccuring': true,
         'type_of_class': typeOfClass,
-        'registered_users': registeredUsers,
-      }).select('id');
+        'registered_users': Map<String, dynamic>.from(registeredUsers),
+      });
+
+      // Then add all recurring dates that match selected weekdays
+      // Start from the day after the original date to avoid duplicates
+      DateTime current = startDate.add(const Duration(days: 1));
+      while (!current.isAfter(endDate)) {
+        if (_selectedWeekdays.contains(current.weekday)) {
+          classesToInsert.add({
+            'class_name': className,
+            'coach_assigned': coachAssigned,
+            'date': dateFormatter.format(current),
+            'time': time,
+            'difficulty': difficulty,
+            'reccuring': true,
+            'type_of_class': typeOfClass,
+            'registered_users': Map<String, dynamic>.from(registeredUsers),
+          });
+        }
+        current = current.add(const Duration(days: 1));
+      }
+    } else {
+      // Non-recurring: just add the single class
+      classesToInsert.add({
+        'class_name': className,
+        'coach_assigned': coachAssigned,
+        'date': dateFormatter.format(startDate),
+        'time': time,
+        'difficulty': difficulty,
+        'reccuring': false,
+        'type_of_class': typeOfClass,
+        'registered_users': Map<String, dynamic>.from(registeredUsers),
+      });
+    }
+
+    try {
+      final insertResp = await _supabase
+          .from('classes')
+          .insert(classesToInsert)
+          .select('id');
 
       final createdRows = List<Map<String, dynamic>>.from(insertResp as List? ?? []);
-      final newClassId = createdRows.isNotEmpty ? createdRows.first['id'] : null;
+      final newClassIds = createdRows
+          .map((row) => row['id'])
+          .whereType<int>()
+          .toList();
 
-      if (_selectedGoalId != null && newClassId != null) {
+      if (_selectedGoalId != null && newClassIds.isNotEmpty) {
         final parsedGoalId = int.tryParse(_selectedGoalId.toString()) ?? _selectedGoalId;
-        await _supabase.from('class_goal_links').insert({
-          'class_id': newClassId,
-          'goal_id': parsedGoalId,
-        });
+        final goalLinks = newClassIds
+            .map((classId) => {
+                  'class_id': classId,
+                  'goal_id': parsedGoalId,
+                })
+            .toList();
+        await _supabase.from('class_goal_links').insert(goalLinks);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Class created successfully')),
+        SnackBar(
+          content: Text(
+            'Created ${classesToInsert.length} class${classesToInsert.length == 1 ? '' : 'es'} successfully',
+          ),
+        ),
       );
 
       _classNameController.clear();
@@ -142,11 +231,13 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
       _difficultyController.clear();
       _typeOfClassController.clear();
       _registeredUsersController.clear();
+      _endDateController.clear();
       setState(() {
         _selectedGoalId = null;
         _selectedDifficulty = null;
         _selectedClassType = null;
         _selectedRecurring = null;
+        _selectedWeekdays.clear();
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -358,6 +449,66 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
                 onChanged: (v) => setState(() => _selectedRecurring = v),
               ),
               const SizedBox(height: 20),
+
+              if (_selectedRecurring == true) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      'Repeat on',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  children: _weekdayOptions.map((day) {
+                    final int value = day['value'] as int;
+                    final String label = day['label'] as String;
+                    final bool isSelected = _selectedWeekdays.contains(value);
+                    return FilterChip(
+                      label: Text(label),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedWeekdays.add(value);
+                          } else {
+                            _selectedWeekdays.remove(value);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: () {
+                    BottomPicker.date(
+                      pickerTitle: const Text(
+                        'Select Recurrence End Date',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      minDateTime: DateTime.now(),
+                      maxDateTime: DateTime.now().add(const Duration(days: 365 * 3)),
+                      onSubmit: (date) {
+                        _endDateController.text =
+                            '${date.month}-${date.day}-${date.year}';
+                        setState(() {});
+                      },
+                      backgroundColor: AppColors.background,
+                    ).show(context);
+                  },
+                  child: AbsorbPointer(
+                    child: TextField(
+                      controller: _endDateController,
+                      decoration: _bubbleDecoration('End Date (MM-DD-YYYY)'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               // Type of Class Dropdown
               DropdownButtonFormField<int>(
