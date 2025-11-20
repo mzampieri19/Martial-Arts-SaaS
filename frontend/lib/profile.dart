@@ -3,8 +3,60 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'profile_page.dart';
+import 'log_in.dart';
+
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
+  
+  /// Handle logout: sign out from Supabase and navigate to login page
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      // Show confirmation dialog
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Log Out'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Log Out'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldLogout != true) return;
+
+      // Sign out from Supabase
+      await Supabase.instance.client.auth.signOut();
+
+      // Navigate to login page and clear navigation stack
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LogInPage()),
+          (route) => false, // Remove all previous routes
+        );
+      }
+    } catch (e) {
+      // Show error if logout fails
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
   
   Future<void> _openProfileDetails(BuildContext context) async {
     final supabase = Supabase.instance.client;
@@ -73,14 +125,7 @@ class ProfilePage extends StatelessWidget {
             ? username
             : (Supabase.instance.client.auth.currentUser?.email ?? 'Profile');
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            title: Text(appBarTitle!),
-            automaticallyImplyLeading: false,
-          ),
-          body: SingleChildScrollView(
+        return SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Column(
           children: [
@@ -109,11 +154,10 @@ class ProfilePage extends StatelessWidget {
             ProfileMenu(
               text: "Log Out",
               icon: "assets/icons/Log out.svg",
-              press: () {},
+              press: () => _handleLogout(context),
             ),
           ],
         ),
-          ),
         );
       },
     );

@@ -132,15 +132,25 @@ class _AppBottomNavigationState extends State<AppBottomNavigation>
                   ),
                 ),
                 SizedBox(height: AppConstants.spaceXs),
-                AnimatedDefaultTextStyle(
-                  duration: AppConstants.animationNormal,
-                  curve: Curves.easeInOut,
-                  style: AppConstants.labelXs.copyWith(
-                    color: _getTextColor(isSelected, isHovered),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 10,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: AnimatedDefaultTextStyle(
+                      duration: AppConstants.animationNormal,
+                      curve: Curves.easeInOut,
+                      style: AppConstants.labelXs.copyWith(
+                        color: _getTextColor(isSelected, isHovered),
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontSize: 10,
+                      ),
+                      child: Text(
+                        item.label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ),
-                  child: Text(item.label),
                 ),
               ],
             ),

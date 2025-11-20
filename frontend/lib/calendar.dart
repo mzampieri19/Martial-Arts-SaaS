@@ -125,11 +125,13 @@ class _CalendarPageState extends State<CalendarPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Class Calendar'),
-        actions: [
-          Row(
+    return Column(
+      children: [
+        // Switch toolbar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
               const Text('Registered Only'),
               Switch(
@@ -143,10 +145,9 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ],
           ),
-          const SizedBox(width: 12),
-        ],
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+        ),
+        Expanded(
+          child: FutureBuilder<List<Map<String, dynamic>>>(
         future: _classesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -230,7 +231,9 @@ class _CalendarPageState extends State<CalendarPage> {
             ],
           );
         },
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

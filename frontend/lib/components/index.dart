@@ -6,3 +6,4 @@ export 'app_bar.dart';
 export 'app_bottom_navigation.dart';
 export 'class_card.dart';
 export 'students_overview.dart';
+export 'announcement_card.dart';
