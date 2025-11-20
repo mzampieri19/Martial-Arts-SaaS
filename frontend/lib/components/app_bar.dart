@@ -38,6 +38,20 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine the leading widget
+    Widget? leadingWidget;
+    if (leading != null) {
+      leadingWidget = leading;
+    } else if (showBackButton && Navigator.of(context).canPop()) {
+      leadingWidget = IconButton(
+        icon: Icon(
+          Icons.arrow_back,
+          color: foregroundColor ?? AppConstants.textPrimary,
+        ),
+        onPressed: onBackPressed ?? () => Navigator.of(context).pop(),
+      );
+    }
+
     return AppBar(
       title: title != null
           ? Text(
@@ -53,6 +67,8 @@ class AppBarWidget extends StatelessWidget implements PreferredSizeWidget {
       elevation: elevation ?? 0,
       shadowColor: AppConstants.primaryColor.withOpacity(0.1),
       automaticallyImplyLeading: false,
+      leading: leadingWidget,
+      actions: actions,
     );
   }
 

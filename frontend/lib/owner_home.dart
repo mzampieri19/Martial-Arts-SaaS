@@ -124,7 +124,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
         case 0:
           return 'Owner Hub';
         case 1:
-          return 'Make Classes';
+          return 'Announcements';
         case 2:
           return 'Calendar';
         case 3:

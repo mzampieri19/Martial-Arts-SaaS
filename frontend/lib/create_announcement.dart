@@ -44,10 +44,12 @@ class _CreateAnnouncementPageState extends State<CreateAnnouncementPage> {
         'created_by': createdBy,
       }).select();
 
+      if (!context.mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Announcement created')));
-
-      _titleCtrl.clear();
-      _bodyCtrl.clear();
+      
+      // Navigate back to previous page after successful creation
+      Navigator.of(context).pop();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error creating announcement: $e')));
     } finally {

@@ -122,7 +122,7 @@ class _CoachHomePageState extends State<CoachHomePage> {
         case 0:
           return 'Coach Hub';
         case 1:
-          return 'Make Classes';
+          return 'Announcements';
         case 2:
           return 'Calendar';
         case 3:
