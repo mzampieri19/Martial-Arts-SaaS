@@ -17,6 +17,8 @@ class AppColors {
   static const linkBlue = Color(0xFFC96E6E);
   static const fieldFill = Color(0xFFF1F3F6);
   static const background = Color(0xFFFFFDE2);
+  static const primaryPeach = Color.fromARGB(255, 240, 172, 150);
+  static const lightPink = Color.fromARGB(255, 255, 163, 238);
 }
 
 // Home page is just the bar and the bottom navigation, the actual content is in HomeContentPage
