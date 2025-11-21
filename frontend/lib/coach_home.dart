@@ -1,11 +1,12 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile.dart';
 import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
 import 'components/index.dart';
-import 'components/students_overview.dart';
 import 'qr_check_in_page.dart';
 import 'view_class_qr_codes_page.dart';
 
@@ -268,29 +269,90 @@ class CoachHomeContentPage extends StatelessWidget {
     );
   }
 
+  // return: {#all classes, #finished classes, #unfinished classes}
+  Future<List<int>> fetchRegisteredClasses() async {
+    var res = List.filled(3, 0);
+    var currentTimestamp = DateTime.now();
+    final supabase = Supabase.instance.client;
+    final userId = supabase.auth.currentUser!.id;
+    final profile = await supabase.from('profiles').select('username').eq('id', userId).maybeSingle();
+
+    final username = profile?['username'] as String?;
+    if (username==null) return [0, 0, 0];
+
+    final allClasses = await supabase.from('classes').select('class_name').textSearch('coach_assigned', username);
+    print(allClasses);
+    final finishedClasses = await supabase.from('classes')
+    .select('class_name').textSearch('coach_assigned', username).lt("date", currentTimestamp.toIso8601String());
+    print(finishedClasses);
+    print(allClasses.length - finishedClasses.length);
+    res[0] = (allClasses as List).length; 
+    res[1] = (finishedClasses as List).length; 
+    res[2] = allClasses.length-finishedClasses.length;
+    return res;
+  }
+
   Widget _buildDashboardSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Dashboard',
+          'Class Progress',
           style: AppConstants.headingMd,
         ),
         SizedBox(height: AppConstants.spaceMd),
         // Placeholder for dashboard content
         Container(
           height: 200,
+          padding: EdgeInsets.all(20.0),
           decoration: BoxDecoration(
             color: AppConstants.surfaceColor,
             borderRadius: BorderRadius.circular(AppConstants.radiusMd),
           ),
-          child: Center(
-            child: Text(
-              'Dashboard Content Here',
-              style: AppConstants.bodyMd.copyWith(
-                color: AppConstants.textSecondary,
-              ),
-            ),
+          child: FutureBuilder(
+            future: fetchRegisteredClasses(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Text('Could not load classes: ${snapshot.error}');
+              }
+
+              final res = snapshot.data;
+              int finishedClasses = res![1];
+              int unfinishedClasses = res[0]-res[1];
+
+              List<PieChartSectionData> pieChartSectionData = [
+                PieChartSectionData(
+                    value: finishedClasses.toDouble(),
+                    title: 'Finished\nClasses',
+                    titleStyle: TextStyle(
+                      fontSize: 12, // Adjust this value to make the text smaller
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    titlePositionPercentageOffset: 1.8,
+                    color: Color(0xffed733f),
+                  ),
+                  PieChartSectionData(
+                    value: unfinishedClasses.toDouble(),
+                    title: 'Upcoming\nClassses',
+                    titleStyle: TextStyle(
+                      fontSize: 12, // Adjust this value to make the text smaller
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    titlePositionPercentageOffset: 1.8,
+                    color: Color(0xffd86f9b),
+                  ),
+              ];
+
+              return PieChart(
+                PieChartData(
+                  sections: pieChartSectionData,
+                )
+              );
+            }
           ),
         ),
       ],

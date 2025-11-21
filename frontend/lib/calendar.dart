@@ -190,6 +190,10 @@ class _CalendarPageState extends State<CalendarPage> {
                   CalendarFormat.twoWeeks: '2 Weeks',
                   CalendarFormat.month: 'Month',
                 },
+                calendarStyle: const CalendarStyle(
+                  markerSize: 3,
+                  markersAutoAligned: false,
+                ),
                 headerStyle: const HeaderStyle(formatButtonVisible: true),
                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
                 onDaySelected: (selected, focused) {
