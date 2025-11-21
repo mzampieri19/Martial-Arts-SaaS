@@ -280,10 +280,12 @@ class CoachHomeContentPage extends StatelessWidget {
     final username = profile?['username'] as String?;
     if (username==null) return [0, 0, 0];
 
-    final allClasses = await supabase.from('classes').select('id, class_name, date, time, coach_assigned').eq('coach_assigned', username!);
+    final allClasses = await supabase.from('classes').select('class_name').textSearch('coach_assigned', username);
+    print(allClasses);
     final finishedClasses = await supabase.from('classes')
-    .select('id, class_name, date, time, coach_assigned').eq('coach_assigned', username!).lt("created_at", currentTimestamp.toIso8601String());
-    //print(allClasses.length - finishedClasses.length);
+    .select('class_name').textSearch('coach_assigned', username).lt("date", currentTimestamp.toIso8601String());
+    print(finishedClasses);
+    print(allClasses.length - finishedClasses.length);
     res[0] = (allClasses as List).length; 
     res[1] = (finishedClasses as List).length; 
     res[2] = allClasses.length-finishedClasses.length;
@@ -317,9 +319,38 @@ class CoachHomeContentPage extends StatelessWidget {
               }
 
               final res = snapshot.data;
+              int finishedClasses = res![1];
+              int unfinishedClasses = res[0]-res[1];
+
+              List<PieChartSectionData> pieChartSectionData = [
+                PieChartSectionData(
+                    value: finishedClasses.toDouble(),
+                    title: 'Finished\nClasses',
+                    titleStyle: TextStyle(
+                      fontSize: 12, // Adjust this value to make the text smaller
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    titlePositionPercentageOffset: 1.8,
+                    color: Color(0xffed733f),
+                  ),
+                  PieChartSectionData(
+                    value: unfinishedClasses.toDouble(),
+                    title: 'Upcoming\nClassses',
+                    titleStyle: TextStyle(
+                      fontSize: 12, // Adjust this value to make the text smaller
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                    titlePositionPercentageOffset: 1.8,
+                    color: Color(0xffd86f9b),
+                  ),
+              ];
 
               return PieChart(
-                // Fuck 
+                PieChartData(
+                  sections: pieChartSectionData,
+                )
               );
             }
           ),
