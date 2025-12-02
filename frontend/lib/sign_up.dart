@@ -3,6 +3,7 @@ import 'package:frontend/home.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'components/validation_dialogs.dart';
 
 class AppColors {
   static const primaryBlue = Color(0xFFDD886C);
@@ -20,6 +21,7 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   File? _selectedImage;
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -48,6 +50,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   void dispose() {
+    _nameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -59,7 +62,7 @@ class _SignUpPageState extends State<SignUpPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surface,
+        backgroundColor: Theme.of(context).colorScheme.background,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -127,6 +130,14 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 12),
 
+              // Name
+              TextField(
+                controller: _nameController,
+                decoration: _input('Full Name'),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 14),
+
               // Username
               TextField(
                 controller: _usernameController,
@@ -153,7 +164,6 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 20),
 
-              // Submit button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -170,10 +180,22 @@ class _SignUpPageState extends State<SignUpPage> {
                     final email = _emailController.text.trim();
                     final password = _passwordController.text.trim();
 
-                    if (username.isEmpty || email.isEmpty || password.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please fill out all fields')),
-                      );
+                    final List<String> errors = [];
+                    final emailRegex = RegExp(r"^[\w\.-]+@[a-zA-Z0-9\.-]+\.[a-zA-Z]{2,}");
+                    if (username.isEmpty) errors.add('Username is required');
+                    if (email.isEmpty) {
+                      errors.add('Email is required');
+                    } else if (!emailRegex.hasMatch(email)) {
+                      errors.add('Please enter a valid email address');
+                    }
+                    if (password.isEmpty) {
+                      errors.add('Password is required');
+                    } else if (password.length < 6) {
+                      errors.add('Password must be at least 6 characters');
+                    }
+
+                    if (errors.isNotEmpty) {
+                      await showInvalidFieldsDialog(context, errors);
                       return;
                     }
 
@@ -199,7 +221,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       try {
                         await supabase
                             .from('profiles')
-                            .upsert({'id': user.id, 'username': username});
+                            .upsert({'id': user.id, 'username': username, 'full_name': _nameController.text.trim()});
                       } on PostgrestException catch (e) {
                         // Log exact DB error for debugging
                         // ignore: avoid_print

@@ -389,6 +389,7 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
                       setState(() {});
                     },
                     backgroundColor: AppColors.background,
+                    buttonSingleColor: AppColors.primaryBlue,
                   ).show(context);
                 },
                 child: AbsorbPointer(
@@ -415,6 +416,8 @@ class _CreateClassesPageState extends State<CreateClassesPage> {
                       setState(() {});
                     },
                     backgroundColor: AppColors.background,
+                    buttonSingleColor: AppColors.primaryBlue,
+
                   ).show(context);
                 },
                 child: AbsorbPointer(

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/constants/app_constants.dart';
+import 'package:frontend/home.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({
@@ -21,12 +23,12 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         centerTitle: false,
         elevation: 0,
-        backgroundColor: const Color(0xFFFF7643),
-        foregroundColor: Colors.black,
+        backgroundColor: AppColors.primaryBlue,
+        foregroundColor: AppConstants.textPrimary,
         title: const Text("Profile"),
         actions: [
           IconButton(
@@ -68,8 +70,8 @@ class ProfileScreen extends StatelessWidget {
                 width: 160,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF7643),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppConstants.accentColor,
+                    foregroundColor: AppConstants.backgroundColor,
                     minimumSize: const Size(double.infinity, 48),
                     shape: const StadiumBorder(),
                   ),
@@ -123,7 +125,7 @@ class ProfilePic extends StatelessWidget {
               backgroundColor: Theme.of(context).primaryColor,
               child: const Icon(
                 Icons.add,
-                color: Colors.white,
+                color: AppColors.background,
                 size: 20,
               ),
             ),

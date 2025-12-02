@@ -163,11 +163,11 @@ class _TrackingProgressPageState extends State<TrackingProgressPage> {
                     color: AppConstants.surfaceColor,
                     borderRadius: BorderRadius.circular(AppConstants.radiusLg),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
+                      // BoxShadow(
+                      //   color: Colors.black.withOpacity(0.05),
+                      //   blurRadius: 10,
+                      //   offset: const Offset(0, 2),
+                      // ),
                     ],
                   ),
                   child: Column(

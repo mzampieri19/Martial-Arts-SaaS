@@ -146,14 +146,12 @@ class _StudentsOverviewState extends State<StudentsOverview> {
     return Container(
       padding: EdgeInsets.all(AppConstants.spaceMd),
       decoration: BoxDecoration(
-        color: AppConstants.surfaceColor,
+        color: AppConstants.backgroundColor,
         borderRadius: BorderRadius.circular(AppConstants.radiusMd),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Students Overview', style: AppConstants.headingSm.copyWith(color: AppConstants.textPrimary)),
-          const SizedBox(height: 8),
           ..._students.map((s) {
             final avatar = s['avatar_url'] as String?;
             final avatarUrl = (avatar != null && avatar.isNotEmpty)
@@ -185,7 +183,7 @@ class _StudentsOverviewState extends State<StudentsOverview> {
                             Flexible(
                               child: Text(
                                 '$reg classes registered',
-                                style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary),
+                                style: AppConstants.bodySm.copyWith(color: AppConstants.textPrimary),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -193,7 +191,7 @@ class _StudentsOverviewState extends State<StudentsOverview> {
                             Flexible(
                               child: Text(
                                 '$att classes attended',
-                                style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary),
+                                style: AppConstants.bodySm.copyWith(color: AppConstants.textPrimary),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -201,7 +199,7 @@ class _StudentsOverviewState extends State<StudentsOverview> {
                             Flexible(
                               child: Text(
                                 '$goals goals mastered',
-                                style: AppConstants.bodySm.copyWith(color: AppConstants.textSecondary),
+                                style: AppConstants.bodySm.copyWith(color: AppConstants.textPrimary),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -214,7 +212,7 @@ class _StudentsOverviewState extends State<StudentsOverview> {
                             value: progressScore,
                             minHeight: 8,
                             backgroundColor: AppConstants.primaryColor.withOpacity(0.12),
-                            valueColor: AlwaysStoppedAnimation(AppConstants.primaryColor),
+                            valueColor: AlwaysStoppedAnimation(AppConstants.accentColorDark),
                           ),
                         ),
                       ],

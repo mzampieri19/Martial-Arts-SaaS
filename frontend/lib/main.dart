@@ -77,12 +77,6 @@ class _MyHomePageState extends State<MyHomePage> {
       context,
       MaterialPageRoute(builder: (context) => const LogInPage()),
     );
-
-    // This is to test the other user pages easily
-    //   Navigator.push(
-    //   context,
-    //   MaterialPageRoute(builder: (context) => const OwnerHomePage()),
-    // );
   }
 
   void _navigateToSignUpPage() {
@@ -123,20 +117,36 @@ class _MyHomePageState extends State<MyHomePage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.sports_mma, color: AppColors.primary, size: 28),
-                  const SizedBox(width: 8),
-                  Text(
-                    'GYM CALENDAR',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+                  // Logo image (place `assets/images/logo.png`). If missing, falls back to an icon.
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      // match the page background so the logo visually blends in
+                      color: Color.fromRGBO(255, 253, 226, 1),
                     ),
-                  ),
+                    child: Image.asset(
+                      '/images/new_new_logo.png',
+                      height: 200,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stack) => Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.sports_mma, color: AppColors.primary, size: 28),
+                          SizedBox(width: 8),
+                          Text(
+                            'BOOK A FIGHT',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),                  
                 ],
               ),
-              const SizedBox(height: 16),
-
               // bubbles
               SizedBox(
                 height: 210,
@@ -163,17 +173,6 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
               const SizedBox(height: 8),
-
-              // subtitle
-              Text(
-                'idk placeholder placeholder placeholder',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSubtle,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
 
               const SizedBox(height: 24),
               // (buttons removed from here)
