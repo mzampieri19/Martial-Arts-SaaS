@@ -136,7 +136,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           Text(
                             'BOOK A FIGHT',
                             style: TextStyle(
-                              color: AppColors.textDark,
+                              color: AppColors.primary,
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
                             ),
