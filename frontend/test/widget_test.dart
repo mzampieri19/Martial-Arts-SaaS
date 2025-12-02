@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('GYM CALENDAR'), findsOneWidget);
+    expect(find.text('BOOK A FIGHT'), findsOneWidget);
     expect(find.text('Track your events and progress!'), findsOneWidget);
     expect(find.text('Register'), findsOneWidget);
     expect(find.text('Log In'), findsOneWidget);
