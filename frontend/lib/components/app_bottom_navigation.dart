@@ -141,7 +141,7 @@ class _AppBottomNavigationState extends State<AppBottomNavigation>
                       style: AppConstants.labelXs.copyWith(
                         color: _getTextColor(isSelected, isHovered),
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                        fontSize: 10,
+                        fontSize: 8.0,
                       ),
                       child: Text(
                         item.label,
@@ -160,25 +160,25 @@ class _AppBottomNavigationState extends State<AppBottomNavigation>
     );
   }  Color _getBackgroundColor(bool isSelected, bool isHovered) {
     if (isSelected) {
-      return AppConstants.primaryColor.withOpacity(0.15);
+      return AppConstants.accentColorLight.withOpacity(0.15);
     } else if (isHovered) {
-      return AppConstants.primaryColor.withOpacity(0.08);
+      return AppConstants.accentColorLight.withOpacity(0.08);
     }
     return Colors.transparent;
   }
 
   Color _getIconColor(bool isSelected, bool isHovered) {
     if (isSelected) {
-      return AppConstants.primaryColor;
+      return AppConstants.accentColorDark;
     } else if (isHovered) {
-      return AppConstants.primaryColor.withOpacity(0.8);
+      return AppConstants.accentColorDark.withOpacity(0.8);
     }
     return AppConstants.textTertiary;
   }
 
   Color _getTextColor(bool isSelected, bool isHovered) {
     if (isSelected) {
-      return AppConstants.primaryColor;
+      return AppConstants.accentColorDark;
     } else if (isHovered) {
       return AppConstants.textPrimary;
     }

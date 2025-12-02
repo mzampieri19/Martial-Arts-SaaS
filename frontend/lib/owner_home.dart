@@ -236,10 +236,11 @@ class OwnerHomeContentPage extends StatelessWidget {
               style: AppConstants.headingLg,
             ),
             SizedBox(height: AppConstants.spaceMd),
+            Text('Students Overview', style: AppConstants.headingMd.copyWith(color: AppConstants.textPrimary)),
             const StudentsOverview(),
-            SizedBox(height: AppConstants.spaceXl),
+            SizedBox(height: AppConstants.spaceMd),
             _buildCreateClassSection(context),
-            SizedBox(height: AppConstants.spaceXl),
+            SizedBox(height: AppConstants.spaceMd),
             _buildCreateAnnouncementSection(context),
           ],
         ),
@@ -252,7 +253,7 @@ class OwnerHomeContentPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Create a New Announcement',
+          'Announcement Management',
           style: AppConstants.headingMd,
         ),
         SizedBox(height: AppConstants.spaceMd),
@@ -275,30 +276,38 @@ class OwnerHomeContentPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Create a New Class',
+          'Class Management',
           style: AppConstants.headingMd,
         ),
         SizedBox(height: AppConstants.spaceMd),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => CreateClassesPage(),
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => CreateClassesPage(),
+                    ),
+                  );
+                },
+                child: const Text('Make a Class'),
               ),
-            );
-          },
-          child: Text('Make a Class'),
-        ),
-        SizedBox(height: AppConstants.spaceMd),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => EditClassPage(),
+            ),
+            SizedBox(width: AppConstants.spaceMd),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => EditClassPage(),
+                    ),
+                  );
+                },
+                child: const Text('Edit an Existing Class'),
               ),
-            );
-          },
-          child: Text('Edit an existing Class'),
+            ),
+          ],
         ),
       ],
     );

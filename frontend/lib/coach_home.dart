@@ -235,10 +235,11 @@ class CoachHomeContentPage extends StatelessWidget {
               style: AppConstants.headingLg,
             ),
             SizedBox(height: AppConstants.spaceMd),
+            Text('Students Overview', style: AppConstants.headingMd.copyWith(color: AppConstants.textPrimary)),
             const StudentsOverview(),
-            SizedBox(height: AppConstants.spaceXl),
+            SizedBox(height: AppConstants.spaceMd),
             _buildCreateClassSection(context),
-            SizedBox(height: AppConstants.spaceXl),
+            SizedBox(height: AppConstants.spaceMd),
             _buildDashboardSection(),
           ],
         ),
@@ -251,7 +252,7 @@ class CoachHomeContentPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Manage Classes',
+          'Class Management',
           style: AppConstants.headingMd,
         ),
         SizedBox(height: AppConstants.spaceMd),
@@ -306,7 +307,7 @@ class CoachHomeContentPage extends StatelessWidget {
           height: 200,
           padding: EdgeInsets.all(20.0),
           decoration: BoxDecoration(
-            color: AppConstants.surfaceColor,
+            color: AppConstants.backgroundColor,
             borderRadius: BorderRadius.circular(AppConstants.radiusMd),
           ),
           child: FutureBuilder(

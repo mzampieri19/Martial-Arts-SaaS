@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:frontend/constants/app_constants.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'profile_page.dart';
@@ -72,11 +73,12 @@ class ProfilePage extends StatelessWidget {
     try {
       final profile = await supabase
           .from('profiles')
-          .select('username, avatar_url, Role')
+          .select('username, avatar_url, Role, full_name')
           .eq('id', user.id)
           .maybeSingle();
 
       final username = profile?['username'] as String?;
+      final full_name = profile?['full_name'] as String?;
       final avatarPath = profile?['avatar_url'] as String?;
       final avatarUrl = (avatarPath != null && avatarPath.isNotEmpty)
           ? supabase.storage.from('avatars').getPublicUrl(avatarPath)
@@ -87,8 +89,8 @@ class ProfilePage extends StatelessWidget {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ProfileScreen(
-            displayName: username?.isNotEmpty == true
-                ? username!
+            displayName: full_name?.isNotEmpty == true
+                ? full_name!
                 : (user.email ?? 'My Profile'),
             userId: username?.isNotEmpty == true ? '@$username' : user.id,
             email: user.email ?? '—',
@@ -190,12 +192,12 @@ class ProfilePic extends StatelessWidget {
               width: 46,
               child: TextButton(
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.background,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(50),
-                    side: const BorderSide(color: Colors.white),
+                    side: const BorderSide(color: AppColors.background),
                   ),
-                  backgroundColor: const Color(0xFFF5F6F9),
+                  backgroundColor: AppColors.background,
                 ),
                 onPressed: () {},
                 child: SvgPicture.string(cameraIcon),
@@ -225,7 +227,7 @@ class ProfileMenu extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: TextButton(
         style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFFFF7643),
+          foregroundColor: AppColors.primaryBlue,
           padding: const EdgeInsets.all(20),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -237,7 +239,7 @@ class ProfileMenu extends StatelessWidget {
             SvgPicture.asset(
               icon,
               colorFilter:
-                  const ColorFilter.mode(Color(0xFFFF7643), BlendMode.srcIn),
+                  const ColorFilter.mode(AppColors.primaryBlue, BlendMode.srcIn),
               width: 22,
             ),
             const SizedBox(width: 20),
@@ -245,13 +247,13 @@ class ProfileMenu extends StatelessWidget {
               child: Text(
                 text,
                 style: const TextStyle(
-                  color: Color(0xFF757575),
+                  color: AppConstants.textPrimary,
                 ),
               ),
             ),
             const Icon(
               Icons.arrow_forward_ios,
-              color: Color(0xFF757575),
+              color: AppConstants.textPrimary,
             ),
           ],
         ),
