@@ -128,7 +128,21 @@ class _MyHomePageState extends State<MyHomePage> {
                       '/images/new_new_logo.png',
                       height: 200,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stack) => Icon(Icons.sports_mma, color: AppColors.primary, size: 28),
+                      errorBuilder: (context, error, stack) => Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.sports_mma, color: AppColors.primary, size: 28),
+                          SizedBox(width: 8),
+                          Text(
+                            'BOOK A FIGHT',
+                            style: TextStyle(
+                              color: AppColors.textDark,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),                  
                 ],
