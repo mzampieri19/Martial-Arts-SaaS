@@ -103,41 +103,41 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       showBackButton: false,
       actions: [
         // Notification icon with badge
-        Stack(
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.notifications_outlined,
-                size: AppConstants.iconLg,
-              ),
-              onPressed: onNotificationTap,
-            ),
-            if (notificationCount > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: EdgeInsets.all(AppConstants.spaceXs),
-                  decoration: BoxDecoration(
-                    color: AppConstants.errorColor,
-                    borderRadius: BorderRadius.circular(AppConstants.radiusFull),
-                  ),
-                  constraints: BoxConstraints(
-                    minWidth: 16,
-                    minHeight: 16,
-                  ),
-                  child: Text(
-                    notificationCount > 99 ? '99+' : notificationCount.toString(),
-                    style: AppConstants.labelXs.copyWith(
-                      color: backgroundColor,
-                      fontSize: 10,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-          ],
-        ),
+        // Stack(
+        //   children: [
+        //     IconButton(
+        //       icon: Icon(
+        //         Icons.notifications_outlined,
+        //         size: AppConstants.iconLg,
+        //       ),
+        //       onPressed: onNotificationTap,
+        //     ),
+        //     if (notificationCount > 0)
+        //       Positioned(
+        //         right: 8,
+        //         top: 8,
+        //         child: Container(
+        //           padding: EdgeInsets.all(AppConstants.spaceXs),
+        //           decoration: BoxDecoration(
+        //             color: AppConstants.errorColor,
+        //             borderRadius: BorderRadius.circular(AppConstants.radiusFull),
+        //           ),
+        //           constraints: BoxConstraints(
+        //             minWidth: 16,
+        //             minHeight: 16,
+        //           ),
+        //           child: Text(
+        //             notificationCount > 99 ? '99+' : notificationCount.toString(),
+        //             style: AppConstants.labelXs.copyWith(
+        //               color: backgroundColor,
+        //               fontSize: 10,
+        //             ),
+        //             textAlign: TextAlign.center,
+        //           ),
+        //         ),
+        //       ),
+        //   ],
+        // ),
         
         // Profile avatar
         Padding(
@@ -151,7 +151,7 @@ class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
               child: userProfile == null
                   ? Icon(
                       Icons.person,
-                      color: AppConstants.cardColor,
+                      color: AppConstants.textPrimary,
                       size: AppConstants.iconMd,
                     )
                   : null,

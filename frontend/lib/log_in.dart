@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/coach_home.dart';
 import 'package:frontend/home.dart';
 import 'package:frontend/owner_home.dart';
+import 'components/validation_dialogs.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppColors {
@@ -9,6 +10,37 @@ class AppColors {
   static const linkBlue = Color(0xFFC96E6E);
   static const fieldFill = Color(0xFFF1F3F6);
   static const background = Color(0xFFFFFDE2);
+}
+
+// Dialog shown when the email is valid but the provided password is incorrect.
+Future<void> showWrongPasswordDialog(BuildContext context, String email, SupabaseClient supabase) {
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.background,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: const Text('Incorrect Password', style: TextStyle(fontWeight: FontWeight.w700)),
+      content: SizedBox(
+        width: 320,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 6),
+            const Text('The password you entered does not match this account.'),
+            const SizedBox(height: 12),
+            const Text('Please try again.'),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    ),
+  );
 }
 
 class LogInPage extends StatefulWidget {
@@ -52,10 +84,18 @@ class _LogInPageState extends State<LogInPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill out all fields to log in')),
-      );
+    final List<String> errors = [];
+    final emailRegex = RegExp(r"^[\w\.-]+@[a-zA-Z0-9\.-]+\.[a-zA-Z]{2,}");
+    if (email.isEmpty) {
+      errors.add('Email is required');
+    } else if (!emailRegex.hasMatch(email)) {
+      errors.add('Please enter a valid email address');
+    }
+    if (password.isEmpty) errors.add('Password is required');
+
+    if (errors.isNotEmpty) {
+      if (!mounted) return;
+      await showInvalidFieldsDialog(context, errors);
       return;
     }
 
@@ -106,7 +146,13 @@ class _LogInPageState extends State<LogInPage> {
           );
       }
     } on AuthException catch (e) {
-      if (!mounted) return; 
+      if (!mounted) return;
+      final lower = e.message.toLowerCase();
+      // If message looks like invalid credentials, offer a reset dialog
+      if (lower.contains('invalid') || lower.contains('credentials') || lower.contains('password')) {
+        await showWrongPasswordDialog(context, email, _supabase);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login error: ${e.message}')),
       );
@@ -164,12 +210,6 @@ class _LogInPageState extends State<LogInPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text("Sample Email and Passwords for Easier testing:"
-                  "\nCoach: graceyang@brandeis.edu / password: graceyang"
-                  "\nOwner: jdecambre@brandeis.edu / password: jaydend"
-                  "\nStudent: huayizhang@brandeis.edu / password: changeme123"
-                  ),
-              const SizedBox(height: 14),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,

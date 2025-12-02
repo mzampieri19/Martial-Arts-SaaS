@@ -169,6 +169,12 @@ class HomeContentPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Quick Stats Section
+             Text(
+            'Quick Stats',
+            style: AppConstants.headingLg.copyWith(
+              color: AppConstants.textPrimary,
+            ),
+          ),
             _buildQuickStats(),
             
             SizedBox(height: AppConstants.spaceXl),
@@ -190,26 +196,10 @@ class HomeContentPage extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(AppConstants.spaceLg),
       decoration: BoxDecoration(
-        color: AppConstants.surfaceColor,
-        borderRadius: BorderRadius.circular(AppConstants.radiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppConstants.backgroundColor,
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Quick Stats',
-            style: AppConstants.headingSm.copyWith(
-              color: AppConstants.textPrimary,
-            ),
-          ),
-          SizedBox(height: AppConstants.spaceMd),
           Row(
             children: [
               Expanded(
