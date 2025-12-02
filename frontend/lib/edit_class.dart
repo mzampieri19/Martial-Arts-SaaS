@@ -318,6 +318,7 @@ class _EditClassPageState extends State<EditClassPage> {
                           setDialogState(() {});
                         },
                         backgroundColor: AppColors.background,
+                        buttonSingleColor: AppColors.primaryBlue,
                       ).show(context);
                     },
                     child: AbsorbPointer(child: TextField(controller: dateCtrl, decoration: _bubbleDecoration('Date (MM-DD-YYYY)'))),
@@ -338,6 +339,7 @@ class _EditClassPageState extends State<EditClassPage> {
                           setDialogState(() {});
                         },
                         backgroundColor: AppColors.background,
+                        buttonSingleColor: AppColors.primaryBlue,
                       ).show(context);
                     },
                     child: AbsorbPointer(child: TextField(controller: timeCtrl, decoration: _bubbleDecoration('Time (HH:MM)'))),
