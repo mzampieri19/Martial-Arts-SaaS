@@ -2,7 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'profile.dart';
+import 'profile_page.dart';
 import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
@@ -33,7 +33,7 @@ class _CoachHomePageState extends State<CoachHomePage> {
     const CoachHomeContentPage(), // Home content
     const AnnouncementsPage(),
     const CalendarPage(),
-    const ProfilePage(),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {

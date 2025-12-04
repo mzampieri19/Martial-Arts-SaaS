@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
 import 'package:frontend/edit_class.dart';
-import 'profile.dart';
+import 'profile_page.dart';
 import 'announcements.dart';
 import 'create_announcement.dart';
 import 'calendar.dart';
@@ -34,7 +34,7 @@ class _OwnerHomePageState extends State<OwnerHomePage> {
     const OwnerHomeContentPage(), // Home content
     const AnnouncementsPage(),
     const CalendarPage(),
-    const ProfilePage(),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
