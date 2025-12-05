@@ -1,6 +1,9 @@
+import 'dart:collection';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
+import 'package:frontend/coach_bar_chart.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'profile_page.dart';
 import 'announcements.dart';
@@ -241,6 +244,8 @@ class CoachHomeContentPage extends StatelessWidget {
             _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceMd),
             _buildDashboardSection(),
+            SizedBox(height: AppConstants.spaceMd),
+            _buildAnalyticsSection(),
           ],
         ),
       ),
@@ -270,6 +275,25 @@ class CoachHomeContentPage extends StatelessWidget {
     );
   }
 
+  Future<Map> fetchAttendanceRate() async {
+    Map<int, double> map = HashMap();
+    final supabase = Supabase.instance.client;
+    for (int i = 1; i <= 12; i++) {
+      var list = await supabase.rpc('get_created_class_list', params: {'month_input': i}); // returns a list of class id
+      int size = list.length;
+      double probability = 0.0;
+
+      for (int class_id in list) {
+        probability += await supabase.rpc('get_attendance_rate', params: {'given_id': class_id});
+      }
+      var attendance_rate = size==0? 0.0: probability/size;
+      final dataOf1Month = {i: attendance_rate};
+      map.addAll(dataOf1Month);
+    }
+    print(map);
+    return map; 
+  }
+
   // return: {#all classes, #finished classes, #unfinished classes}
   Future<List<int>> fetchRegisteredClasses() async {
     var res = List.filled(3, 0);
@@ -293,6 +317,49 @@ class CoachHomeContentPage extends StatelessWidget {
     return res;
   }
 
+  Widget _buildAnalyticsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Class Analytics',
+          style: AppConstants.headingMd,
+        ),
+        SizedBox(height: AppConstants.spaceMd),
+        Container(
+          padding: EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: AppConstants.cardColor,
+            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+          ),
+          child: FutureBuilder(
+            future: fetchAttendanceRate(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Text('Could not load analytics: ${snapshot.error}');
+              }
+
+              final map = snapshot.data;
+              
+              // UPDATE MEEE
+              // return BarChart(
+              //   BarChartData(
+              //     //TODO
+              //   ),
+              //   duration: Duration(milliseconds: 150), // Optional
+              //   curve: Curves.linear, // Optional
+              // );
+              return BarChartCoach();
+
+            }
+          )
+        )
+      ],
+    );
+  }
+
   Widget _buildDashboardSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +374,7 @@ class CoachHomeContentPage extends StatelessWidget {
           height: 200,
           padding: EdgeInsets.all(20.0),
           decoration: BoxDecoration(
-            color: AppConstants.backgroundColor,
+            color: AppConstants.cardColor,
             borderRadius: BorderRadius.circular(AppConstants.radiusMd),
           ),
           child: FutureBuilder(

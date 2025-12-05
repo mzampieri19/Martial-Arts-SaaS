@@ -191,8 +191,12 @@ class _CalendarPageState extends State<CalendarPage> {
                   CalendarFormat.month: 'Month',
                 },
                 calendarStyle: const CalendarStyle(
-                  markerSize: 3,
+                  markerSize: 6,
                   markersAutoAligned: false,
+                  todayDecoration: const BoxDecoration(
+                    color: Color(0xFF9FA8DA),
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 headerStyle: const HeaderStyle(formatButtonVisible: true),
                 selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
