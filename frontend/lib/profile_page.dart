@@ -167,7 +167,7 @@ class ProfilePic extends StatelessWidget {
         alignment: Alignment.bottomRight,
         children: [
           CircleAvatar(
-            radius: 50,
+            radius: 60,
             backgroundImage: NetworkImage(image),
           ),
           InkWell(
