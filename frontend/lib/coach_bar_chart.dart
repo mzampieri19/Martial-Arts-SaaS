@@ -70,8 +70,9 @@ class BarChartState extends State<BarChartCoach> {
                   width: 4,
                 ),
                 const Text(
-                  'state',
-                  style: TextStyle(color: Color(0xff77839a), fontSize: 16),
+                  'Average Attendance Rate',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontSize: 13),
                 ),
               ],
             ),
