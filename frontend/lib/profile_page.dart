@@ -83,6 +83,7 @@ class _ProfileScreen extends State<ProfileScreen> {
         final profile = snapshot.data!;
         final username = profile['username'] as String?;
         final full_name = profile['full_name'] as String?;
+        final role = profile['Role'] as String?;
         final avatarPath = profile['avatar_url'] as String?;
         final avatarUrl = (avatarPath != null && avatarPath.isNotEmpty)
             ? client.storage.from('avatars').getPublicUrl(avatarPath)
@@ -103,6 +104,10 @@ class _ProfileScreen extends State<ProfileScreen> {
                 Info(
                   infoKey: "Username",
                   info: username ?? '',
+                ),
+                Info(
+                  infoKey: "Role",
+                  info: role ?? '',
                 ),
                 Info(
                   infoKey: "Email Address",

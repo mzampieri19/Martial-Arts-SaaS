@@ -1,11 +1,10 @@
-import 'dart:collection';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class BarChartCoach extends StatefulWidget {
-  BarChartCoach({super.key});
+class BarChartCoachCount extends StatefulWidget {
+  BarChartCoachCount({super.key});
   final Color leftBarColor = AppColors.primaryPeach;
   final Color rightBarColor = AppColors.linkBlue;
   final Color avgColor =
@@ -14,28 +13,19 @@ class BarChartCoach extends StatefulWidget {
   State<StatefulWidget> createState() => BarChartState();
 }
 
-Future<Map> fetchAttendanceRate() async {
-    Map<int, double> map = HashMap();
+Future<List<int>> fetchClassCount() async {
+    List<int> list = [];
     final supabase = Supabase.instance.client;
     for (int i = 1; i <= 12; i++) {
-      var list = await supabase.rpc('get_created_class_list', params: {'month_input': i}); // returns a list of class id
-      int size = list.length;
-      double probability = 0.0;
-
-      for (int class_id in list) {
-        probability += await supabase.rpc('get_attendance_rate', params: {'given_id': class_id});
-      }
-      var attendance_rate = size==0? 0.0: probability/size;
-      final dataOf1Month = {i: attendance_rate};
-      map.addAll(dataOf1Month);
+      list.add(await supabase.rpc('get_class_created', params: {'month_input': i})); // returns a list of class counts created at each month
     }
-    print(map);
-    return map; 
+    print(list);
+    return list; 
 }
 
-class BarChartState extends State<BarChartCoach> {
+class BarChartState extends State<BarChartCoachCount> {
   final double width = 7;
-  late Map<int, double> map;
+  late List<int> list;
 
   late List<BarChartGroupData> rawBarGroups = [];
   late List<BarChartGroupData> showingBarGroups = [];
@@ -70,19 +60,19 @@ class BarChartState extends State<BarChartCoach> {
   }
 
   Future<void> _loadData() async {
-    map = (await fetchAttendanceRate()).cast<int, double>();
-    final barGroup1 = makeGroupData(0, map[1] ?? 0);
-    final barGroup2 = makeGroupData(1, map[2] ?? 0);
-    final barGroup3 = makeGroupData(2, map[3] ?? 0);
-    final barGroup4 = makeGroupData(3, map[4] ?? 0);
-    final barGroup5 = makeGroupData(4, map[5] ?? 0);
-    final barGroup6 = makeGroupData(5, map[6] ?? 0);
-    final barGroup7 = makeGroupData(6, map[7] ?? 0);
-    final barGroup8 = makeGroupData(7, map[8] ?? 0);
-    final barGroup9 = makeGroupData(8, map[9] ?? 0);
-    final barGroup10 = makeGroupData(9, map[10] ?? 0);
-    final barGroup11 = makeGroupData(10, map[11] ?? 0);
-    final barGroup12 = makeGroupData(11, map[12] ?? 0);
+    list = await fetchClassCount();
+    final barGroup1 = makeGroupData(0, list[0] as double, list);
+    final barGroup2 = makeGroupData(1, list[1] as double, list);
+    final barGroup3 = makeGroupData(2, list[2] as double, list);
+    final barGroup4 = makeGroupData(3, list[3] as double, list);
+    final barGroup5 = makeGroupData(4, list[4] as double, list);
+    final barGroup6 = makeGroupData(5, list[5] as double, list);
+    final barGroup7 = makeGroupData(6, list[6] as double, list);
+    final barGroup8 = makeGroupData(7, list[7] as double, list);
+    final barGroup9 = makeGroupData(8, list[8] as double, list);
+    final barGroup10 = makeGroupData(9, list[9] as double, list);
+    final barGroup11 = makeGroupData(10, list[10] as double, list);
+    final barGroup12 = makeGroupData(11, list[11] as double, list);
 
     final items = [
       barGroup1,
@@ -113,11 +103,12 @@ class BarChartState extends State<BarChartCoach> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.max,
               children: <Widget>[
                 makeTransactionsIcon(),
                 const SizedBox(
                   width: 38,
+                  
                 ),
                 const Text(
                   'Transactions',
@@ -127,7 +118,7 @@ class BarChartState extends State<BarChartCoach> {
                   width: 4,
                 ),
                 const Text(
-                  'Average Attendance Rate for 2025',
+                  'Class Created / Month for 2025',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Color.fromARGB(255, 0, 0, 0), fontSize: 10),
                 ),
@@ -143,7 +134,7 @@ class BarChartState extends State<BarChartCoach> {
                       ? Center(child: Text(loadError!))
                       : BarChart(
                 BarChartData(
-                  maxY: 20,
+                  maxY: 100,
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: ((group) {
@@ -242,17 +233,26 @@ class BarChartState extends State<BarChartCoach> {
     );
     String text;
     if (value == 0) {
-      text = '0%';
-    } else if (value == 10) {
-      text = '10%';
-    } else if (value == 20) {
-      text = '20%';
+      text = '0';
+    } else if (value == 25) {
+      text = '25';
+    } else if (value == 50) {
+      text = '50';
+    } else if (value == 75) {
+      text = '75';
+    } else if (value == 100) {
+      text = '100';
     } else {
       return Container();
     }
     return SideTitleWidget(
       meta: meta,
       space: 0,
+      fitInside: const SideTitleFitInsideData(
+      enabled: true,
+      distanceFromEdge: 0,
+      parentAxisSize: 0,
+      axisPosition: 0),
       child: Text(text, style: style),
     );
   }
@@ -277,7 +277,7 @@ class BarChartState extends State<BarChartCoach> {
     );
   }
 
-  BarChartGroupData makeGroupData(int x, double y1) {
+  BarChartGroupData makeGroupData(int x, double y1, List<int> list) {
     return BarChartGroupData(
       barsSpace: 4,
       x: x,
@@ -288,6 +288,7 @@ class BarChartState extends State<BarChartCoach> {
           width: width,
         ),
       ],
+      showingTooltipIndicators: list,
     );
   }
 
