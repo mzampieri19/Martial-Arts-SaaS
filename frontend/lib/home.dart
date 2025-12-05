@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:frontend/components/classes_list.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'profile.dart';
+import 'profile_page.dart';
 import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> {
     const HomeContentPage(), // Home content
     const AnnouncementsPage(),
     const CalendarPage(),
-    const ProfilePage(),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {

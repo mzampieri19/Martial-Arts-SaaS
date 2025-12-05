@@ -1,88 +1,140 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/constants/app_constants.dart';
 import 'package:frontend/home.dart';
+import 'package:frontend/log_in.dart' hide AppColors;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({
-    super.key,
-    this.displayName = 'Annette Black',
-    this.userId = '@annette.me',
-    this.location = 'New York, NYC',
-    this.phone = '(239) 555-0108',
-    this.email = 'demo@mail.com',
-    this.avatarUrl = 'https://i.postimg.cc/cCsYDjvj/user-2.png',
-  });
-
-  final String displayName;
-  final String userId;
-  final String location;
-  final String phone;
-  final String email;
-  final String avatarUrl;
+class ProfileScreen extends StatefulWidget {
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: AppColors.primaryBlue,
-        foregroundColor: AppConstants.textPrimary,
-        title: const Text("Profile"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
-          )
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          children: [
-            ProfilePic(image: avatarUrl),
-            Text(
-              displayName,
-              style: Theme.of(context).textTheme.titleLarge,
+  _ProfileScreen createState() => _ProfileScreen();
+}
+
+class _ProfileScreen extends State<ProfileScreen> {
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      // Show confirmation dialog
+      final shouldLogout = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Log Out'),
+          content: const Text('Are you sure you want to log out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
             ),
-            const Divider(height: 16.0 * 2),
-            Info(
-              infoKey: "User ID",
-              info: userId,
-            ),
-            Info(
-              infoKey: "Location",
-              info: location,
-            ),
-            Info(
-              infoKey: "Phone",
-              info: phone,
-            ),
-            Info(
-              infoKey: "Email Address",
-              info: email,
-            ),
-            const SizedBox(height: 16.0),
-            Align(
-              alignment: Alignment.centerRight,
-              child: SizedBox(
-                width: 160,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppConstants.accentColor,
-                    foregroundColor: AppConstants.backgroundColor,
-                    minimumSize: const Size(double.infinity, 48),
-                    shape: const StadiumBorder(),
-                  ),
-                  onPressed: () {},
-                  child: const Text("Edit profile"),
-                ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Log Out'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
               ),
             ),
           ],
         ),
-      ),
+      );
+
+      if (shouldLogout != true) return;
+
+      // Sign out from Supabase
+      await Supabase.instance.client.auth.signOut();
+
+      // Navigate to login page and clear navigation stack
+      if (context.mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LogInPage()),
+          (route) => false, // Remove all previous routes
+        );
+      }
+    } catch (e) {
+      // Show error if logout fails
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser!;
+
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: client
+          .from('profiles')
+          .select('username, avatar_url, Role, full_name')
+          .eq('id', user.id)
+          .maybeSingle(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return const Center(child: Text('Error loading profile'));
+        }
+
+        final profile = snapshot.data!;
+        final username = profile['username'] as String?;
+        final full_name = profile['full_name'] as String?;
+        final role = profile['Role'] as String?;
+        final avatarPath = profile['avatar_url'] as String?;
+        final avatarUrl = (avatarPath != null && avatarPath.isNotEmpty)
+            ? client.storage.from('avatars').getPublicUrl(avatarPath)
+            : 'https://i.postimg.cc/cCsYDjvj/user-2.png';
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              children: [
+                ProfilePic(image: avatarUrl),
+                Text(
+                  full_name ?? '',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const Divider(height: 32),
+                Info(
+                  infoKey: "Username",
+                  info: username ?? '',
+                ),
+                Info(
+                  infoKey: "Role",
+                  info: role ?? '',
+                ),
+                Info(
+                  infoKey: "Email Address",
+                  info: user.email ?? '',
+                ),
+                const SizedBox(height: 16.0),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: 160,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.accentColor,
+                        foregroundColor: AppConstants.backgroundColor,
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: () => _handleLogout(context),
+                      child: const Text("Log out"),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

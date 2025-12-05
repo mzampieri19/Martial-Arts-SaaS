@@ -1,8 +1,10 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/create_classes.dart';
+import 'package:frontend/coach_bar_chart.dart';
+import 'package:frontend/coach_bar_chart_class_count.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'profile.dart';
+import 'profile_page.dart';
 import 'announcements.dart';
 import 'calendar.dart';
 import 'constants/app_constants.dart';
@@ -33,7 +35,7 @@ class _CoachHomePageState extends State<CoachHomePage> {
     const CoachHomeContentPage(), // Home content
     const AnnouncementsPage(),
     const CalendarPage(),
-    const ProfilePage(),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -240,6 +242,10 @@ class CoachHomeContentPage extends StatelessWidget {
             SizedBox(height: AppConstants.spaceMd),
             _buildCreateClassSection(context),
             SizedBox(height: AppConstants.spaceMd),
+            _buildAnalyticsSection2_0(),
+            SizedBox(height: AppConstants.spaceMd),
+            _buildAnalyticsSection(),
+            SizedBox(height: AppConstants.spaceMd),
             _buildDashboardSection(),
           ],
         ),
@@ -293,6 +299,68 @@ class CoachHomeContentPage extends StatelessWidget {
     return res;
   }
 
+  Widget _buildAnalyticsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Class Attendance Analytics',
+          style: AppConstants.headingMd,
+        ),
+        SizedBox(height: AppConstants.spaceMd),
+        Container(
+          padding: EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: AppConstants.cardColor,
+            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+          ),
+          child: FutureBuilder(
+            future: fetchAttendanceRate(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Text('Could not load analytics: ${snapshot.error}');
+              }
+              return BarChartCoach();
+            }
+          )
+        )
+      ],
+    );
+  }
+
+  Widget _buildAnalyticsSection2_0() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Class Creation Analytics',
+          style: AppConstants.headingMd,
+        ),
+        SizedBox(height: AppConstants.spaceMd),
+        Container(
+          padding: EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: AppConstants.cardColor,
+            borderRadius: BorderRadius.circular(AppConstants.radiusMd),
+          ),
+          child: FutureBuilder(
+            future: fetchAttendanceRate(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Text('Could not load analytics: ${snapshot.error}');
+              }
+              return BarChartCoachCount();
+            }
+          )
+        )
+      ],
+    );
+  }
+
   Widget _buildDashboardSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +375,7 @@ class CoachHomeContentPage extends StatelessWidget {
           height: 200,
           padding: EdgeInsets.all(20.0),
           decoration: BoxDecoration(
-            color: AppConstants.backgroundColor,
+            color: AppConstants.cardColor,
             borderRadius: BorderRadius.circular(AppConstants.radiusMd),
           ),
           child: FutureBuilder(
