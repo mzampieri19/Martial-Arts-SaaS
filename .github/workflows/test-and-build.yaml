@@ -106,12 +106,7 @@ jobs:
 
       # 15. Install CocoaPods dependencies (cached)
       - name: Install CocoaPods dependencies
-        run: |
-          if [ -d "ios/Pods" ]; then
-            echo "Using cached CocoaPods"
-          else
-            cd ios && pod install --repo-update
-          fi
+        run: cd ios && pod install
 
       # 16. Check for lints
       - name: Check for lints
