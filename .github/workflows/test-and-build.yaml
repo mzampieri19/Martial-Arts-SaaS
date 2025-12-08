@@ -35,79 +35,123 @@ jobs:
           distribution: 'zulu'
           java-version: "17"
 
-      # 7.
+      # 7. Set up Flutter (with built-in caching)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           flutter-version: '3.35.5'
+          cache: true
 
-      # 8.
+      # 8. Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      # 9.
+      # 9. Accept Android licenses
       - name: Accept Android licenses
         run: |
           yes | sdkmanager --licenses
       
-      # 10.
+      # 10. Cache Flutter pub dependencies - saves 1-2 minutes
       - name: Cache Flutter pub
         uses: actions/cache@v4
         with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
-          restore-keys: ${{ runner.os }}-pub-
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('frontend/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
       
-      # 11.
+      # 11. Cache Gradle - saves 2-5 minutes  
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
+          key: ${{ runner.os }}-gradle-${{ hashFiles('frontend/android/**/*.gradle*', 'frontend/android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      
+      # 12. Cache CocoaPods - saves 2-4 minutes
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-cocoapods-${{ hashFiles('frontend/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cocoapods-
+      
+      # 13. Cache Flutter build cache - saves 3-6 minutes (Dart kernel/assembly cache)
+      - name: Cache Flutter build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            frontend/.dart_tool/flutter_build
+            frontend/.dart_tool/build
+          key: ${{ runner.os }}-flutter-build-${{ hashFiles('frontend/pubspec.yaml', 'frontend/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-build-
 
-      # 12.
+      # 14. Get Flutter packages (use offline mode if cache exists)
       - name: Get Flutter packages
         run: |
-          flutter pub get
+          if flutter pub get --offline 2>/dev/null; then
+            echo "Used cached dependencies"
+          else
+            flutter pub get
+          fi
 
-      # 13.
+      # 15. Install CocoaPods dependencies (cached)
+      - name: Install CocoaPods dependencies
+        run: |
+          if [ -d "ios/Pods" ]; then
+            echo "Using cached CocoaPods"
+          else
+            cd ios && pod install --repo-update
+          fi
+
+      # 16. Check for lints
       - name: Check for lints
         run: |
           flutter analyze --no-fatal-warnings --no-fatal-infos
 
-      # 14.
+      # 17. Run all tests
       - name: Run all tests
         run: |
           flutter test
 
-      # 15.
+      # 18. Build Android APK (with build cache)
       - name: Build Android APK
         run: |
-          flutter build apk
+          flutter build apk --release
           
-      # 16.
+      # 19. Upload Android APK (upload even on failure for debugging)
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
+        if: always()  # Upload even if build failed
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: frontend/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: ignore  # Don't fail if APK doesn't exist
 
-      # 17.
+      # 20. Build iOS IPA (with build cache, no codesign)
       - name: Build iOS IPA (no codesign)
-        run: flutter build ipa --no-codesign
+        run: |
+          flutter build ipa --no-codesign --release
 
       # Uncomment only if pods complain:
       # - name: Update CocoaPods repo
       #   run: pod repo update
       #   working-directory: ios
           
-      # 17.
+      # 21. Upload iOS IPA (upload even on failure for debugging)
       - name: Upload iOS IPA
         uses: actions/upload-artifact@v4
+        if: always()  # Upload even if build failed
         with:
           name: ios-ipa
-          path: build/ios/ipa/*.ipa
+          path: frontend/build/ios/ipa/*.ipa
+          if-no-files-found: ignore  # Don't fail if IPA doesn't exist
